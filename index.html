@@ -10,9 +10,12 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- sql.js (Real SQLite Engine compiled to WebAssembly) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.12.0/sql-wasm.js"></script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
     body { font-family: 'Inter', sans-serif; }
+    code, pre, .font-mono { font-family: 'JetBrains Mono', monospace; }
     .tab-btn.active {
       border-color: #2563EB;
       color: #2563EB;
@@ -31,18 +34,23 @@
         </div>
         <div>
           <h1 class="text-xl font-bold text-slate-900 leading-tight">Smart Campus Placement Management System</h1>
-          <p class="text-xs text-slate-500 font-medium">RDBMS (3NF) &bull; Business Triggers &bull; Java JDBC Backend</p>
+          <p class="text-xs text-slate-500 font-medium">Relational Database Engine &bull; Real-time Triggers &bull; Full 3NF Schema</p>
         </div>
       </div>
-      <div class="flex items-center gap-2">
-        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          Live on Vercel
-        </span>
+      <div class="flex items-center gap-2.5">
+        <div id="dbStatusBadge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+          <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+          <span id="dbStatusText">Initializing Database...</span>
+        </div>
+        <button onclick="downloadDbFile()" title="Export current SQLite .db file" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition">
+          <i data-lucide="download" class="w-3.5 h-3.5"></i> Export .db
+        </button>
+        <button onclick="resetDatabasePrompt()" title="Reset to initial seed data" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition">
+          <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i> Reset DB
+        </button>
         <a href="https://github.com/ujjawalsaffar-ship-it/smart-campus-placement-system" target="_blank"
-           class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 text-white hover:bg-slate-800 transition">
-          <i data-lucide="github" class="w-3.5 h-3.5"></i>
-          GitHub Repo
+           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 text-white hover:bg-slate-800 transition">
+          <i data-lucide="github" class="w-3.5 h-3.5"></i> GitHub
         </a>
       </div>
     </div>
@@ -56,7 +64,7 @@
           <i data-lucide="bar-chart-3" class="w-4 h-4"></i> TPO Analytics
         </button>
         <button onclick="switchTab('students')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-blue-600 border border-transparent transition flex items-center gap-2">
-          <i data-lucide="graduation-cap" class="w-4 h-4"></i> Student Portal
+          <i data-lucide="graduation-cap" class="w-4 h-4"></i> Student Portal (Apply)
         </button>
         <button onclick="switchTab('jobs')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-blue-600 border border-transparent transition flex items-center gap-2">
           <i data-lucide="briefcase" class="w-4 h-4"></i> Companies & Drives
@@ -64,35 +72,46 @@
         <button onclick="switchTab('applications')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-blue-600 border border-transparent transition flex items-center gap-2">
           <i data-lucide="clipboard-check" class="w-4 h-4"></i> Admin Management
         </button>
+        <button onclick="switchTab('sqlterminal')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-blue-600 border border-transparent transition flex items-center gap-2">
+          <i data-lucide="terminal" class="w-4 h-4"></i> Live SQL Terminal
+        </button>
         <button onclick="switchTab('schema')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-blue-600 border border-transparent transition flex items-center gap-2">
-          <i data-lucide="database" class="w-4 h-4"></i> Database Schema & Viva
+          <i data-lucide="database" class="w-4 h-4"></i> Schema & Triggers
         </button>
       </div>
     </div>
   </nav>
 
+  <!-- Live SQL Ticker Bar -->
+  <div class="bg-slate-900 text-slate-300 px-4 py-1.5 text-xs font-mono flex items-center justify-between border-b border-slate-800">
+    <div class="flex items-center gap-2 overflow-hidden whitespace-nowrap">
+      <span class="text-blue-400 font-bold uppercase tracking-wider text-[10px]">SQL Executed:</span>
+      <span id="sqlTicker" class="text-slate-300 truncate text-[11px]">Connecting to SQLite engine...</span>
+    </div>
+    <span id="sqlTime" class="text-slate-500 text-[10px] shrink-0 ml-2">-- ms</span>
+  </div>
+
   <!-- Main Content -->
-  <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+  <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
 
     <!-- Notification Toast -->
     <div id="toast" class="hidden mb-6 p-4 rounded-xl border transition-all duration-300 flex items-start gap-3 shadow-sm">
       <div id="toastIcon" class="mt-0.5"></div>
       <div class="flex-1">
         <h4 id="toastTitle" class="text-sm font-bold"></h4>
-        <p id="toastMessage" class="text-xs mt-0.5"></p>
+        <p id="toastMessage" class="text-xs mt-0.5 font-mono"></p>
       </div>
       <button onclick="hideToast()" class="text-slate-400 hover:text-slate-600 text-sm font-bold">&times;</button>
     </div>
 
     <!-- TAB 1: TPO Analytics -->
     <section id="tab-analytics" class="tab-content space-y-6">
-      <!-- KPI Stats Grid -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
           <div>
             <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Registered</p>
-            <h3 class="text-3xl font-extrabold text-slate-900 mt-1" id="statTotalStudents">10</h3>
-            <p class="text-xs text-slate-500 mt-1">Across 4 Departments</p>
+            <h3 class="text-3xl font-extrabold text-slate-900 mt-1" id="statTotalStudents">--</h3>
+            <p class="text-xs text-slate-500 mt-1">From table <code>students</code></p>
           </div>
           <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
             <i data-lucide="users" class="w-6 h-6"></i>
@@ -102,8 +121,8 @@
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
           <div>
             <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Placed</p>
-            <h3 class="text-3xl font-extrabold text-emerald-600 mt-1" id="statTotalPlaced">3</h3>
-            <p class="text-xs text-slate-500 mt-1">Via automated Trigger 2</p>
+            <h3 class="text-3xl font-extrabold text-emerald-600 mt-1" id="statTotalPlaced">--</h3>
+            <p class="text-xs text-slate-500 mt-1">Auto-synchronized by Trigger 2</p>
           </div>
           <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
             <i data-lucide="check-circle-2" class="w-6 h-6"></i>
@@ -113,8 +132,8 @@
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
           <div>
             <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Placement Rate</p>
-            <h3 class="text-3xl font-extrabold text-indigo-600 mt-1" id="statPlacementRate">30.0%</h3>
-            <p class="text-xs text-slate-500 mt-1">Target: &gt; 80%</p>
+            <h3 class="text-3xl font-extrabold text-indigo-600 mt-1" id="statPlacementRate">--%</h3>
+            <p class="text-xs text-slate-500 mt-1">College Target &gt; 80%</p>
           </div>
           <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
             <i data-lucide="trending-up" class="w-6 h-6"></i>
@@ -124,8 +143,8 @@
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
           <div>
             <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Highest Package</p>
-            <h3 class="text-3xl font-extrabold text-purple-600 mt-1">16.5 LPA</h3>
-            <p class="text-xs text-slate-500 mt-1">TechNova (Full Stack)</p>
+            <h3 class="text-3xl font-extrabold text-purple-600 mt-1" id="statHighestPackage">-- LPA</h3>
+            <p class="text-xs text-slate-500 mt-1">Subquery: <code>SELECT MAX(...)</code></p>
           </div>
           <div class="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
             <i data-lucide="award" class="w-6 h-6"></i>
@@ -133,7 +152,6 @@
         </div>
       </div>
 
-      <!-- Charts & View Section -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
           <div class="flex items-center justify-between mb-4">
@@ -145,20 +163,20 @@
         </div>
 
         <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-          <h3 class="font-bold text-slate-900 text-base mb-4">Department Summary Table</h3>
+          <h3 class="font-bold text-slate-900 text-base mb-4">Department Summary (Queried from View)</h3>
           <div class="overflow-x-auto">
             <table class="w-full text-left text-xs border-collapse">
               <thead>
-                <tr class="border-b border-slate-200 bg-slate-50 text-slate-600">
+                <tr class="border-b border-slate-200 bg-slate-50 text-slate-600 font-mono">
                   <th class="py-2.5 px-3 font-semibold">Department</th>
-                  <th class="py-2.5 px-3 font-semibold">Total</th>
+                  <th class="py-2.5 px-3 font-semibold">Total Students</th>
                   <th class="py-2.5 px-3 font-semibold">Placed</th>
-                  <th class="py-2.5 px-3 font-semibold">Rate</th>
-                  <th class="py-2.5 px-3 font-semibold">Avg Package</th>
+                  <th class="py-2.5 px-3 font-semibold">Rate (%)</th>
+                  <th class="py-2.5 px-3 font-semibold">Avg Package (LPA)</th>
                 </tr>
               </thead>
-              <tbody id="deptSummaryTable" class="divide-y divide-slate-100">
-                <!-- Injected via JS -->
+              <tbody id="deptSummaryTable" class="divide-y divide-slate-100 font-mono">
+                <tr><td colspan="5" class="py-4 text-center text-slate-400">Loading database query...</td></tr>
               </tbody>
             </table>
           </div>
@@ -169,15 +187,14 @@
     <!-- TAB 2: Student Portal -->
     <section id="tab-students" class="tab-content hidden space-y-6">
       <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-        <h3 class="font-bold text-slate-900 text-base mb-4 flex items-center gap-2">
+        <h3 class="font-bold text-slate-900 text-base mb-3 flex items-center gap-2">
           <i data-lucide="user-check" class="w-5 h-5 text-blue-600"></i>
-          Select Active Student Profile
+          Select Student Profile (from SQL table: <code>students</code>)
         </h3>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
           <div class="md:col-span-2">
-            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Switch Student Account:</label>
-            <select id="studentSelect" onchange="renderStudentProfile()" class="w-full p-2.5 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none">
-              <!-- Injected via JS -->
+            <select id="studentSelect" onchange="renderStudentProfile()" class="w-full p-2.5 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono">
+              <!-- Injected via SQLite query -->
             </select>
           </div>
           <div id="studentProfileCard" class="p-4 rounded-xl bg-blue-50 border border-blue-100 text-xs space-y-1">
@@ -191,11 +208,11 @@
         <div class="flex items-center justify-between mb-4">
           <div>
             <h3 class="font-bold text-slate-900 text-base">Eligible Job Drives for You</h3>
-            <p class="text-xs text-slate-500">Filtered dynamically by SQL View <code class="bg-slate-100 px-1.5 py-0.5 rounded text-blue-600 font-mono">v_student_eligible_jobs</code> (CGPA &ge; min_cgpa)</p>
+            <p class="text-xs text-slate-500">Evaluated in real-time by SQL View <code class="bg-slate-100 px-1.5 py-0.5 rounded text-blue-600 font-mono">v_student_eligible_jobs</code> (CGPA &ge; min_cgpa)</p>
           </div>
         </div>
         <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs border-collapse">
+          <table class="w-full text-left text-xs border-collapse font-mono">
             <thead>
               <tr class="border-b border-slate-200 bg-slate-50 text-slate-600">
                 <th class="py-2.5 px-3 font-semibold">Job ID</th>
@@ -208,23 +225,26 @@
               </tr>
             </thead>
             <tbody id="eligibleJobsTable" class="divide-y divide-slate-100">
-              <!-- Injected via JS -->
+              <!-- Injected via SQLite query -->
             </tbody>
           </table>
         </div>
       </div>
 
-      <!-- Test Trigger 1 Card -->
-      <div class="bg-amber-50/70 border border-amber-200 p-5 rounded-2xl flex items-start gap-4">
+      <!-- Trigger 1 Interactive Test Banner -->
+      <div class="bg-amber-50/80 border border-amber-200 p-5 rounded-2xl flex items-start gap-4">
         <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
-          <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+          <i data-lucide="shield-alert" class="w-5 h-5"></i>
         </div>
-        <div class="text-xs space-y-1">
+        <div class="text-xs space-y-1.5">
           <h4 class="font-bold text-amber-900 text-sm">🧪 Test Database Trigger 1 (Eligibility Enforcement)</h4>
-          <p class="text-amber-800">
-            Select <strong>Student #9 (Vikram Nair, CGPA 6.50)</strong> and try applying for <strong>Job #1 (Associate Software Engineer, Min CGPA 7.50)</strong>.
-            The database trigger <code class="bg-amber-100 px-1 py-0.5 rounded font-mono font-bold">trg_check_cgpa_before_apply</code> will abort the insert transaction with an error.
+          <p class="text-amber-800 leading-relaxed">
+            Choose <strong>Student #9 (Vikram Nair, CGPA 6.50)</strong> in the dropdown above, and try applying for 
+            <strong>Job #1 (Associate Software Engineer, Min CGPA 7.50)</strong>:
           </p>
+          <button onclick="testTrigger1Quick()" class="px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold transition text-xs shadow-sm">
+            ▶️ Run Trigger 1 Test (Vikram &rarr; Job #1)
+          </button>
         </div>
       </div>
     </section>
@@ -233,11 +253,10 @@
     <section id="tab-jobs" class="tab-content hidden space-y-6">
       <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="font-bold text-slate-900 text-base">Active Placement Drives</h3>
-          <span class="text-xs text-slate-500">5 Drives Open</span>
+          <h3 class="font-bold text-slate-900 text-base">Active Placement Drives (Table: <code>job_postings</code>)</h3>
         </div>
         <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs border-collapse">
+          <table class="w-full text-left text-xs border-collapse font-mono">
             <thead>
               <tr class="border-b border-slate-200 bg-slate-50 text-slate-600">
                 <th class="py-2.5 px-3 font-semibold">Job ID</th>
@@ -250,23 +269,20 @@
               </tr>
             </thead>
             <tbody id="allJobsTable" class="divide-y divide-slate-100">
-              <!-- Injected via JS -->
+              <!-- Injected via SQLite query -->
             </tbody>
           </table>
         </div>
       </div>
 
-      <!-- Add New Opening -->
+      <!-- Add New Opening Form -->
       <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-        <h3 class="font-bold text-slate-900 text-base mb-4">Post a New Job Drive</h3>
-        <form id="newJobForm" onsubmit="handleCreateJob(event)" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+        <h3 class="font-bold text-slate-900 text-base mb-4">Post a New Job Drive (SQL INSERT)</h3>
+        <form id="newJobForm" onsubmit="handleCreateJob(event)" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs font-mono">
           <div>
             <label class="block font-semibold text-slate-600 mb-1">Company</label>
             <select id="newJobCompany" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg">
-              <option value="1">TechNova Solutions</option>
-              <option value="2">CloudScale Systems</option>
-              <option value="3">FinTech Global</option>
-              <option value="4">NextGen Robotics</option>
+              <!-- Dynamic options -->
             </select>
           </div>
           <div>
@@ -283,7 +299,7 @@
           </div>
           <div class="sm:col-span-2 lg:col-span-4 flex justify-end">
             <button type="submit" class="px-5 py-2.5 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition">
-              Post Opening
+              Execute SQL INSERT
             </button>
           </div>
         </form>
@@ -300,7 +316,7 @@
           </div>
         </div>
         <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs border-collapse">
+          <table class="w-full text-left text-xs border-collapse font-mono">
             <thead>
               <tr class="border-b border-slate-200 bg-slate-50 text-slate-600">
                 <th class="py-2.5 px-3 font-semibold">App ID</th>
@@ -310,18 +326,60 @@
                 <th class="py-2.5 px-3 font-semibold">Company & Role</th>
                 <th class="py-2.5 px-3 font-semibold">Package</th>
                 <th class="py-2.5 px-3 font-semibold">Status</th>
-                <th class="py-2.5 px-3 font-semibold text-right">Update Status</th>
+                <th class="py-2.5 px-3 font-semibold text-right">Update Status (SQL)</th>
               </tr>
             </thead>
             <tbody id="applicationsTable" class="divide-y divide-slate-100">
-              <!-- Injected via JS -->
+              <!-- Injected via SQLite query -->
             </tbody>
           </table>
         </div>
       </div>
     </section>
 
-    <!-- TAB 5: Database Schema & Viva -->
+    <!-- TAB 5: Live SQL Terminal -->
+    <section id="tab-sqlterminal" class="tab-content hidden space-y-6">
+      <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
+              <i data-lucide="terminal" class="w-5 h-5 text-blue-600"></i>
+              Interactive SQLite Query Console
+            </h3>
+            <p class="text-xs text-slate-500">Run any ANSI SQL / SQLite query directly against the in-browser database engine</p>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap gap-2 text-xs">
+          <span class="text-slate-400 py-1 font-semibold">Quick Queries:</span>
+          <button onclick="setSqlEditor('SELECT * FROM students ORDER BY cgpa DESC;')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 font-mono">All Students</button>
+          <button onclick="setSqlEditor('SELECT * FROM v_placement_summary;')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 font-mono">View Summary</button>
+          <button onclick="setSqlEditor('SELECT c.company_name, COUNT(jp.job_id) AS jobs, ROUND(AVG(jp.package_lpa),2) AS avg_pkg FROM companies c JOIN job_postings jp ON c.company_id = jp.company_id GROUP BY c.company_id HAVING AVG(jp.package_lpa) >= 10;')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 font-mono">HAVING &gt; 10 LPA</button>
+          <button onclick="setSqlEditor('SELECT name, department, cgpa FROM students WHERE placement_status = \'Unplaced\' AND cgpa >= 8.0;')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 font-mono">High CGPA Unplaced</button>
+        </div>
+
+        <div class="space-y-2">
+          <textarea id="sqlInput" rows="4" class="w-full p-3 font-mono text-xs bg-slate-900 text-emerald-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Type your SQL query here... e.g. SELECT * FROM students;"></textarea>
+          <div class="flex justify-between items-center">
+            <span id="queryStats" class="text-xs text-slate-500 font-mono"></span>
+            <button onclick="runCustomSql()" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-xs transition flex items-center gap-1.5 shadow-sm">
+              <i data-lucide="play" class="w-3.5 h-3.5"></i> Run Query
+            </button>
+          </div>
+        </div>
+
+        <div id="queryOutputContainer" class="border border-slate-200 rounded-xl overflow-hidden hidden">
+          <div class="overflow-x-auto max-h-96">
+            <table id="queryResultTable" class="w-full text-left text-xs border-collapse font-mono">
+              <thead id="queryResultHead" class="bg-slate-100 text-slate-700 border-b border-slate-200"></thead>
+              <tbody id="queryResultBody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 6: Schema & Triggers -->
     <section id="tab-schema" class="tab-content hidden space-y-6">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
@@ -371,52 +429,249 @@
   <!-- Footer -->
   <footer class="bg-white border-t border-slate-200 py-4 mt-auto">
     <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-500">
-      Smart Campus Placement Management System &bull; Academic RDBMS Project &bull; Powered by Java JDBC & Vercel
+      Smart Campus Placement Management System &bull; RDBMS + Java JDBC + SQLite WebAssembly Engine
     </div>
   </footer>
 
   <script>
-    // In-memory Database State matching 02_seed_data.sql
-    let students = [
-      { id: 1, name: 'Aarav Sharma', email: 'aarav.sharma@campus.edu', dept: 'CSE', cgpa: 9.20, status: 'Placed' },
-      { id: 2, name: 'Diya Patel', email: 'diya.patel@campus.edu', dept: 'CSE', cgpa: 8.65, status: 'Unplaced' },
-      { id: 3, name: 'Rohan Verma', email: 'rohan.verma@campus.edu', dept: 'ECE', cgpa: 7.80, status: 'Unplaced' },
-      { id: 4, name: 'Ananya Iyer', email: 'ananya.iyer@campus.edu', dept: 'IT', cgpa: 8.95, status: 'Unplaced' },
-      { id: 5, name: 'Kabir Mehta', email: 'kabir.mehta@campus.edu', dept: 'ME', cgpa: 7.10, status: 'Placed' },
-      { id: 6, name: 'Pooja Reddy', email: 'pooja.reddy@campus.edu', dept: 'CSE', cgpa: 6.90, status: 'Unplaced' },
-      { id: 7, name: 'Siddharth Rao', email: 'siddharth.rao@campus.edu', dept: 'ECE', cgpa: 8.40, status: 'Unplaced' },
-      { id: 8, name: 'Tanvi Deshmukh', email: 'tanvi.d@campus.edu', dept: 'IT', cgpa: 9.40, status: 'Placed' },
-      { id: 9, name: 'Vikram Nair', email: 'vikram.nair@campus.edu', dept: 'ME', cgpa: 6.50, status: 'Unplaced' },
-      { id: 10, name: 'Sneha Kulkarni', email: 'sneha.k@campus.edu', dept: 'CSE', cgpa: 7.50, status: 'Unplaced' }
-    ];
+    // Embedded Schema DDL (01_schema.sql)
+    const SCHEMA_SQL = `
+      PRAGMA foreign_keys = ON;
 
-    let companies = [
-      { id: 1, name: 'TechNova Solutions', industry: 'Software', location: 'Bengaluru' },
-      { id: 2, name: 'CloudScale Systems', industry: 'Cloud & DevOps', location: 'Hyderabad' },
-      { id: 3, name: 'FinTech Global', industry: 'FinTech', location: 'Mumbai' },
-      { id: 4, name: 'NextGen Robotics', industry: 'Hardware', location: 'Pune' }
-    ];
+      CREATE TABLE students (
+          student_id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name VARCHAR(100) NOT NULL,
+          email VARCHAR(120) NOT NULL UNIQUE,
+          department VARCHAR(50) NOT NULL,
+          cgpa DECIMAL(3, 2) NOT NULL CHECK (cgpa >= 0.0 AND cgpa <= 10.0),
+          placement_status VARCHAR(20) NOT NULL DEFAULT 'Unplaced' 
+              CHECK (placement_status IN ('Unplaced', 'Placed'))
+      );
 
-    let jobs = [
-      { id: 1, companyId: 1, companyName: 'TechNova Solutions', role: 'Associate Software Engineer', minCgpa: 7.50, packageLpa: 12.00, deadline: '2026-11-15', applicants: 5 },
-      { id: 2, companyId: 1, companyName: 'TechNova Solutions', role: 'Full Stack Developer', minCgpa: 8.50, packageLpa: 16.50, deadline: '2026-11-20', applicants: 4 },
-      { id: 3, companyId: 2, companyName: 'CloudScale Systems', role: 'Cloud Infrastructure Intern', minCgpa: 7.00, packageLpa: 9.50, deadline: '2026-11-10', applicants: 3 },
-      { id: 4, companyId: 3, companyName: 'FinTech Global', role: 'Data Analyst', minCgpa: 7.50, packageLpa: 11.00, deadline: '2026-11-18', applicants: 2 },
-      { id: 5, companyId: 4, companyName: 'NextGen Robotics', role: 'Embedded Systems Engineer', minCgpa: 7.00, packageLpa: 8.00, deadline: '2026-11-25', applicants: 2 }
-    ];
+      CREATE TABLE companies (
+          company_id INTEGER PRIMARY KEY AUTOINCREMENT,
+          company_name VARCHAR(100) NOT NULL UNIQUE,
+          industry VARCHAR(100) NOT NULL,
+          location VARCHAR(100) NOT NULL,
+          contact_email VARCHAR(120) NOT NULL
+      );
 
-    let applications = [
-      { id: 1, studentId: 1, jobId: 1, status: 'Selected', date: '2026-10-01' },
-      { id: 2, studentId: 2, jobId: 1, status: 'Applied', date: '2026-10-02' },
-      { id: 3, studentId: 3, jobId: 1, status: 'Applied', date: '2026-10-02' },
-      { id: 4, studentId: 4, jobId: 1, status: 'Shortlisted', date: '2026-10-03' },
-      { id: 5, studentId: 8, jobId: 2, status: 'Selected', date: '2026-10-07' },
-      { id: 6, studentId: 5, jobId: 3, status: 'Selected', date: '2026-10-08' },
-      { id: 7, studentId: 7, jobId: 3, status: 'Applied', date: '2026-10-09' },
-      { id: 8, studentId: 10, jobId: 1, status: 'Rejected', date: '2026-10-05' }
-    ];
+      CREATE TABLE job_postings (
+          job_id INTEGER PRIMARY KEY AUTOINCREMENT,
+          company_id INTEGER NOT NULL,
+          role_title VARCHAR(100) NOT NULL,
+          min_cgpa DECIMAL(3, 2) NOT NULL CHECK (min_cgpa >= 0.0 AND min_cgpa <= 10.0),
+          package_lpa DECIMAL(5, 2) NOT NULL CHECK (package_lpa > 0.0),
+          deadline DATE NOT NULL,
+          FOREIGN KEY (company_id) REFERENCES companies(company_id) ON DELETE CASCADE
+      );
 
+      CREATE TABLE applications (
+          application_id INTEGER PRIMARY KEY AUTOINCREMENT,
+          student_id INTEGER NOT NULL,
+          job_id INTEGER NOT NULL,
+          application_date DATE NOT NULL DEFAULT (CURRENT_DATE),
+          status VARCHAR(20) NOT NULL DEFAULT 'Applied' 
+              CHECK (status IN ('Applied', 'Shortlisted', 'Selected', 'Rejected')),
+          FOREIGN KEY (student_id) REFERENCES students(student_id) ON DELETE CASCADE,
+          FOREIGN KEY (job_id) REFERENCES job_postings(job_id) ON DELETE CASCADE,
+          CONSTRAINT uq_student_job UNIQUE (student_id, job_id)
+      );
+
+      CREATE TRIGGER trg_check_cgpa_before_apply
+      BEFORE INSERT ON applications
+      FOR EACH ROW
+      WHEN (SELECT cgpa FROM students WHERE student_id = NEW.student_id) < 
+           (SELECT min_cgpa FROM job_postings WHERE job_id = NEW.job_id)
+      BEGIN
+          SELECT RAISE(ABORT, 'Ineligible: Student CGPA is lower than minimum CGPA required for this job posting.');
+      END;
+
+      CREATE TRIGGER trg_auto_update_placement_status
+      AFTER UPDATE OF status ON applications
+      FOR EACH ROW
+      WHEN NEW.status = 'Selected'
+      BEGIN
+          UPDATE students
+          SET placement_status = 'Placed'
+          WHERE student_id = NEW.student_id;
+      END;
+
+      CREATE VIEW v_placement_summary AS
+      SELECT 
+          s.department,
+          COUNT(s.student_id) AS total_students,
+          SUM(CASE WHEN s.placement_status = 'Placed' THEN 1 ELSE 0 END) AS placed_students,
+          ROUND(
+              (CAST(SUM(CASE WHEN s.placement_status = 'Placed' THEN 1 ELSE 0 END) AS FLOAT) / COUNT(s.student_id)) * 100.0, 
+              2
+          ) AS placement_percentage,
+          ROUND(AVG(CASE WHEN a.status = 'Selected' THEN jp.package_lpa END), 2) AS avg_placed_package_lpa,
+          MAX(CASE WHEN a.status = 'Selected' THEN jp.package_lpa END) AS highest_package_lpa
+      FROM students s
+      LEFT JOIN applications a ON s.student_id = a.student_id AND a.status = 'Selected'
+      LEFT JOIN job_postings jp ON a.job_id = jp.job_id
+      GROUP BY s.department;
+
+      CREATE VIEW v_student_eligible_jobs AS
+      SELECT 
+          s.student_id,
+          s.name AS student_name,
+          s.department,
+          s.cgpa,
+          c.company_name,
+          jp.job_id,
+          jp.role_title,
+          jp.min_cgpa,
+          jp.package_lpa,
+          jp.deadline
+      FROM students s
+      CROSS JOIN job_postings jp
+      JOIN companies c ON jp.company_id = c.company_id
+      WHERE s.cgpa >= jp.min_cgpa;
+    `;
+
+    // Embedded Seed Data (02_seed_data.sql)
+    const SEED_SQL = `
+      INSERT INTO companies (company_id, company_name, industry, location, contact_email) VALUES
+      (1, 'TechNova Solutions', 'Software Development', 'Bengaluru', 'recruitment@technova.com'),
+      (2, 'CloudScale Systems', 'Cloud & DevOps', 'Hyderabad', 'careers@cloudscale.io'),
+      (3, 'FinTech Global', 'Financial Technology', 'Mumbai', 'hr@fintechglobal.com'),
+      (4, 'NextGen Robotics', 'Embedded & Hardware', 'Pune', 'jobs@nextgenrobotics.com');
+
+      INSERT INTO students (student_id, name, email, department, cgpa, placement_status) VALUES
+      (1, 'Aarav Sharma',    'aarav.sharma@campus.edu',   'CSE', 9.20, 'Unplaced'),
+      (2, 'Diya Patel',      'diya.patel@campus.edu',     'CSE', 8.65, 'Unplaced'),
+      (3, 'Rohan Verma',     'rohan.verma@campus.edu',    'ECE', 7.80, 'Unplaced'),
+      (4, 'Ananya Iyer',     'ananya.iyer@campus.edu',    'IT',  8.95, 'Unplaced'),
+      (5, 'Kabir Mehta',     'kabir.mehta@campus.edu',    'ME',  7.10, 'Unplaced'),
+      (6, 'Pooja Reddy',     'pooja.reddy@campus.edu',    'CSE', 6.90, 'Unplaced'),
+      (7, 'Siddharth Rao',   'siddharth.rao@campus.edu',  'ECE', 8.40, 'Unplaced'),
+      (8, 'Tanvi Deshmukh',  'tanvi.d@campus.edu',        'IT',  9.40, 'Unplaced'),
+      (9, 'Vikram Nair',     'vikram.nair@campus.edu',    'ME',  6.50, 'Unplaced'),
+      (10, 'Sneha Kulkarni', 'sneha.k@campus.edu',        'CSE', 7.50, 'Unplaced');
+
+      INSERT INTO job_postings (job_id, company_id, role_title, min_cgpa, package_lpa, deadline) VALUES
+      (1, 1, 'Associate Software Engineer', 7.50, 12.00, '2026-11-15'),
+      (2, 1, 'Full Stack Developer',        8.50, 16.50, '2026-11-20'),
+      (3, 2, 'Cloud Infrastructure Intern', 7.00,  9.50, '2026-11-10'),
+      (4, 3, 'Data Analyst',                7.50, 11.00, '2026-11-18'),
+      (5, 4, 'Embedded Systems Engineer',   7.00,  8.00, '2026-11-25');
+
+      INSERT INTO applications (student_id, job_id, application_date, status) VALUES
+      (1, 1, '2026-10-01', 'Shortlisted'),
+      (2, 1, '2026-10-02', 'Applied'),
+      (3, 1, '2026-10-02', 'Applied'),
+      (4, 1, '2026-10-03', 'Shortlisted'),
+      (7, 1, '2026-10-04', 'Applied'),
+      (10, 1, '2026-10-05', 'Rejected'),
+      (1, 2, '2026-10-06', 'Applied'),
+      (2, 2, '2026-10-06', 'Shortlisted'),
+      (4, 2, '2026-10-07', 'Applied'),
+      (8, 2, '2026-10-07', 'Applied'),
+      (3, 3, '2026-10-08', 'Applied'),
+      (5, 3, '2026-10-08', 'Shortlisted'),
+      (7, 3, '2026-10-09', 'Applied'),
+      (1, 4, '2026-10-10', 'Applied'),
+      (4, 4, '2026-10-10', 'Applied'),
+      (3, 5, '2026-10-11', 'Applied'),
+      (5, 5, '2026-10-12', 'Applied');
+
+      UPDATE applications SET status = 'Selected' WHERE student_id = 1 AND job_id = 1;
+      UPDATE applications SET status = 'Selected' WHERE student_id = 8 AND job_id = 2;
+      UPDATE applications SET status = 'Selected' WHERE student_id = 5 AND job_id = 3;
+    `;
+
+    let db = null;
     let placementChart = null;
+
+    // Initialize Database with sql.js (WebAssembly SQLite)
+    async function initDatabase(forceReset = false) {
+      try {
+        updateDbStatus('Connecting...', 'amber');
+        const SQL = await initSqlJs({
+          locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.12.0/${file}`
+        });
+
+        const savedDb = !forceReset ? localStorage.getItem('placement_sqlite_db') : null;
+
+        if (savedDb) {
+          const uInt8Array = new Uint8Array(JSON.parse(savedDb));
+          db = new SQL.Database(uInt8Array);
+          updateDbStatus('Connected (Restored)', 'emerald');
+        } else {
+          db = new SQL.Database();
+          db.run(SCHEMA_SQL);
+          db.run(SEED_SQL);
+          saveDatabase();
+          updateDbStatus('Connected (SQLite WASM)', 'emerald');
+        }
+
+        renderAllTabs();
+        showToast('✓ Database Connected', 'Real SQLite WebAssembly Engine active and ready.');
+      } catch (err) {
+        console.error(err);
+        updateDbStatus('Connection Error', 'rose');
+        showToast('Database Error', err.message, 'error');
+      }
+    }
+
+    function saveDatabase() {
+      if (!db) return;
+      try {
+        const binary = db.export();
+        localStorage.setItem('placement_sqlite_db', JSON.stringify(Array.from(binary)));
+      } catch (e) {
+        console.warn("Could not save to localStorage:", e);
+      }
+    }
+
+    function updateDbStatus(text, color) {
+      const badge = document.getElementById('dbStatusBadge');
+      const label = document.getElementById('dbStatusText');
+      badge.className = `inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-${color}-50 text-${color}-700 border border-${color}-200`;
+      badge.querySelector('span:first-child').className = `w-2 h-2 rounded-full bg-${color}-500 animate-pulse`;
+      label.innerText = text;
+    }
+
+    function query(sql, params = []) {
+      const t0 = performance.now();
+      try {
+        const res = db.exec(sql, params);
+        const t1 = performance.now();
+        updateSqlTicker(sql, (t1 - t0).toFixed(1));
+        if (res.length === 0) return [];
+        const cols = res[0].columns;
+        return res[0].values.map(row => {
+          const obj = {};
+          cols.forEach((col, i) => obj[col] = row[i]);
+          return obj;
+        });
+      } catch (err) {
+        const t1 = performance.now();
+        updateSqlTicker(sql, (t1 - t0).toFixed(1));
+        throw err;
+      }
+    }
+
+    function execute(sql, params = []) {
+      const t0 = performance.now();
+      try {
+        db.run(sql, params);
+        saveDatabase();
+        const t1 = performance.now();
+        updateSqlTicker(sql, (t1 - t0).toFixed(1));
+      } catch (err) {
+        const t1 = performance.now();
+        updateSqlTicker(sql, (t1 - t0).toFixed(1));
+        throw err;
+      }
+    }
+
+    function updateSqlTicker(sql, timeMs) {
+      document.getElementById('sqlTicker').innerText = sql.replace(/\s+/g, ' ').trim();
+      document.getElementById('sqlTime').innerText = `${timeMs} ms`;
+    }
 
     function switchTab(tabId) {
       document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -429,6 +684,7 @@
       if (tabId === 'students') renderStudentsTab();
       if (tabId === 'jobs') renderJobsTab();
       if (tabId === 'applications') renderApplicationsTab();
+      if (tabId === 'sqlterminal') setSqlEditor('SELECT * FROM v_placement_summary;');
     }
 
     function showToast(title, msg, type = 'success') {
@@ -442,8 +698,8 @@
       }`;
 
       icon.innerHTML = type === 'error'
-        ? '<svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01"/></svg>'
-        : '<svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>';
+        ? '<svg class="w-5 h-5 text-red-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01"/></svg>'
+        : '<svg class="w-5 h-5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>';
 
       tTitle.innerText = title;
       tMsg.innerText = msg;
@@ -454,32 +710,51 @@
       document.getElementById('toast').classList.add('hidden');
     }
 
+    function renderAllTabs() {
+      renderAnalytics();
+      renderStudentsTab();
+      renderJobsTab();
+      renderApplicationsTab();
+    }
+
+    // -------------------------------------------------------------
+    // Tab 1: Analytics
+    // -------------------------------------------------------------
     function renderAnalytics() {
-      const total = students.length;
-      const placed = students.filter(s => s.status === 'Placed').length;
-      const rate = ((placed / total) * 100).toFixed(1);
+      if (!db) return;
+      const stats = query(`
+        SELECT 
+          COUNT(student_id) AS total,
+          SUM(CASE WHEN placement_status = 'Placed' THEN 1 ELSE 0 END) AS placed
+        FROM students;
+      `)[0];
+
+      const highest = query(`
+        SELECT MAX(jp.package_lpa) AS max_pkg
+        FROM applications a
+        JOIN job_postings jp ON a.job_id = jp.job_id
+        WHERE a.status = 'Selected';
+      `)[0];
+
+      const total = stats.total || 0;
+      const placed = stats.placed || 0;
+      const rate = total > 0 ? ((placed / total) * 100).toFixed(1) : '0.0';
 
       document.getElementById('statTotalStudents').innerText = total;
       document.getElementById('statTotalPlaced').innerText = placed;
       document.getElementById('statPlacementRate').innerText = `${rate}%`;
+      document.getElementById('statHighestPackage').innerText = `${highest.max_pkg || 0} LPA`;
 
-      // Department-wise view calculation (v_placement_summary)
-      const depts = ['CSE', 'ECE', 'ME', 'IT'];
-      const deptData = depts.map(d => {
-        const dStudents = students.filter(s => s.dept === d);
-        const dPlaced = dStudents.filter(s => s.status === 'Placed').length;
-        const dRate = dStudents.length > 0 ? ((dPlaced / dStudents.length) * 100).toFixed(1) : 0;
-        return { dept: d, total: dStudents.length, placed: dPlaced, rate: dRate };
-      });
-
-      const tableBody = document.getElementById('deptSummaryTable');
-      tableBody.innerHTML = deptData.map(d => `
+      // Query from View: v_placement_summary
+      const summaryRows = query("SELECT * FROM v_placement_summary ORDER BY placement_percentage DESC;");
+      const tbody = document.getElementById('deptSummaryTable');
+      tbody.innerHTML = summaryRows.map(r => `
         <tr class="hover:bg-slate-50">
-          <td class="py-2.5 px-3 font-semibold text-slate-800">${d.dept}</td>
-          <td class="py-2.5 px-3 text-slate-600">${d.total}</td>
-          <td class="py-2.5 px-3 text-emerald-600 font-bold">${d.placed}</td>
-          <td class="py-2.5 px-3 font-bold text-blue-600">${d.rate}%</td>
-          <td class="py-2.5 px-3 text-slate-600">${d.dept === 'IT' ? '16.5' : d.dept === 'CSE' ? '12.0' : d.dept === 'ME' ? '9.5' : 'N/A'} LPA</td>
+          <td class="py-2.5 px-3 font-semibold text-slate-800">${r.department}</td>
+          <td class="py-2.5 px-3 text-slate-600">${r.total_students}</td>
+          <td class="py-2.5 px-3 text-emerald-600 font-bold">${r.placed_students}</td>
+          <td class="py-2.5 px-3 font-bold text-blue-600">${r.placement_percentage}%</td>
+          <td class="py-2.5 px-3 text-slate-600">${r.avg_placed_package_lpa ? r.avg_placed_package_lpa + ' LPA' : 'N/A'}</td>
         </tr>
       `).join('');
 
@@ -489,10 +764,10 @@
       placementChart = new Chart(ctx, {
         type: 'bar',
         data: {
-          labels: deptData.map(d => d.dept),
+          labels: summaryRows.map(r => r.department),
           datasets: [{
             label: 'Placement %',
-            data: deptData.map(d => d.rate),
+            data: summaryRows.map(r => r.placement_percentage),
             backgroundColor: '#3B82F6',
             borderRadius: 8
           }]
@@ -507,45 +782,63 @@
       });
     }
 
+    // -------------------------------------------------------------
+    // Tab 2: Student Portal
+    // -------------------------------------------------------------
     function renderStudentsTab() {
+      if (!db) return;
+      const students = query("SELECT * FROM students ORDER BY student_id ASC;");
       const select = document.getElementById('studentSelect');
+      const currentVal = select.value;
+
       select.innerHTML = students.map(s => `
-        <option value="${s.id}">${s.name} (${s.dept} | CGPA: ${s.cgpa.toFixed(2)} | ${s.status})</option>
+        <option value="${s.student_id}">[ID: ${s.student_id}] ${s.name} (${s.department} | CGPA: ${s.cgpa.toFixed(2)} | Status: ${s.placement_status})</option>
       `).join('');
+
+      if (currentVal && students.some(s => s.student_id == currentVal)) {
+        select.value = currentVal;
+      }
       renderStudentProfile();
     }
 
     function renderStudentProfile() {
+      if (!db) return;
       const studentId = parseInt(document.getElementById('studentSelect').value);
-      const student = students.find(s => s.id === studentId);
+      if (!studentId) return;
+
+      const student = query("SELECT * FROM students WHERE student_id = ?;", [studentId])[0];
       if (!student) return;
 
       document.getElementById('studentProfileCard').innerHTML = `
         <p><strong>Name:</strong> ${student.name}</p>
-        <p><strong>Department:</strong> ${student.dept} | <strong>CGPA:</strong> <span class="font-bold text-blue-700">${student.cgpa.toFixed(2)}</span></p>
-        <p><strong>Placement Status:</strong> <span class="px-2 py-0.5 rounded font-bold ${student.status === 'Placed' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">${student.status}</span></p>
+        <p><strong>Department:</strong> ${student.department} | <strong>CGPA:</strong> <span class="font-bold text-blue-700">${student.cgpa.toFixed(2)}</span></p>
+        <p><strong>Placement Status:</strong> <span class="px-2 py-0.5 rounded font-bold ${student.placement_status === 'Placed' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">${student.placement_status}</span></p>
       `;
 
-      // Render eligible jobs
-      const eligible = jobs.filter(j => student.cgpa >= j.minCgpa);
+      // Query from View: v_student_eligible_jobs
+      const eligible = query("SELECT * FROM v_student_eligible_jobs WHERE student_id = ? ORDER BY package_lpa DESC;", [studentId]);
+      const myApps = query("SELECT job_id, status FROM applications WHERE student_id = ?;", [studentId]);
+      const appMap = {};
+      myApps.forEach(a => appMap[a.job_id] = a.status);
+
       const table = document.getElementById('eligibleJobsTable');
       if (eligible.length === 0) {
-        table.innerHTML = `<tr><td colspan="7" class="py-4 text-center text-slate-400">No job postings currently meet your CGPA requirement.</td></tr>`;
+        table.innerHTML = `<tr><td colspan="7" class="py-4 text-center text-slate-400">No job drives currently meet your CGPA criteria.</td></tr>`;
       } else {
         table.innerHTML = eligible.map(j => {
-          const applied = applications.find(a => a.studentId === student.id && a.jobId === j.id);
+          const status = appMap[j.job_id];
           return `
             <tr class="hover:bg-slate-50">
-              <td class="py-2.5 px-3 font-mono">#${j.id}</td>
-              <td class="py-2.5 px-3 font-semibold text-slate-900">${j.companyName}</td>
-              <td class="py-2.5 px-3">${j.role}</td>
-              <td class="py-2.5 px-3 text-slate-600">${j.minCgpa.toFixed(2)}</td>
-              <td class="py-2.5 px-3 font-bold text-slate-800">${j.packageLpa.toFixed(2)} LPA</td>
+              <td class="py-2.5 px-3">#${j.job_id}</td>
+              <td class="py-2.5 px-3 font-semibold text-slate-900">${j.company_name}</td>
+              <td class="py-2.5 px-3">${j.role_title}</td>
+              <td class="py-2.5 px-3 text-slate-600">${j.min_cgpa.toFixed(2)}</td>
+              <td class="py-2.5 px-3 font-bold text-slate-800">${j.package_lpa.toFixed(2)} LPA</td>
               <td class="py-2.5 px-3 text-slate-500">${j.deadline}</td>
               <td class="py-2.5 px-3 text-right">
-                ${applied
-                  ? `<span class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700">${applied.status}</span>`
-                  : `<button onclick="applyForJob(${student.id}, ${j.id})" class="px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs transition">Apply</button>`
+                ${status
+                  ? `<span class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700">${status}</span>`
+                  : `<button onclick="applyForJob(${student.student_id}, ${j.job_id})" class="px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs transition">Apply (SQL)</button>`
                 }
               </td>
             </tr>
@@ -555,136 +848,246 @@
     }
 
     function applyForJob(studentId, jobId) {
-      const student = students.find(s => s.id === studentId);
-      const job = jobs.find(j => j.id === jobId);
-
-      // Trigger 1 Verification: CGPA check
-      if (student.cgpa < job.minCgpa) {
-        showToast(
-          '❌ [DATABASE TRIGGER 1 ENFORCED]',
-          `Ineligible: Student CGPA (${student.cgpa.toFixed(2)}) is lower than minimum CGPA required (${job.minCgpa.toFixed(2)}) for ${job.role}.`,
-          'error'
-        );
-        return;
+      try {
+        // Real SQLite INSERT statement - will trigger trg_check_cgpa_before_apply
+        execute("INSERT INTO applications (student_id, job_id, status) VALUES (?, ?, 'Applied');", [studentId, jobId]);
+        showToast('✓ [APPLICATION INSERTED]', `Executed INSERT INTO applications for Student #${studentId} and Job #${jobId}!`);
+        renderStudentProfile();
+        renderApplicationsTab();
+        renderJobsTab();
+      } catch (err) {
+        const msg = err.message;
+        if (msg.includes("Ineligible") || msg.includes("lower than minimum")) {
+          showToast('❌ [DATABASE TRIGGER 1 ENFORCED]', msg, 'error');
+        } else if (msg.includes("UNIQUE constraint")) {
+          showToast('⚠️ [DATABASE CONSTRAINT]', 'Unique constraint failed: Student has already applied for this job.', 'error');
+        } else {
+          showToast('SQL Execution Error', msg, 'error');
+        }
       }
-
-      // Check unique constraint
-      if (applications.some(a => a.studentId === studentId && a.jobId === jobId)) {
-        showToast('⚠️ [DATABASE CONSTRAINT]', 'Student has already applied for this opening.', 'error');
-        return;
-      }
-
-      // Insert application
-      applications.unshift({
-        id: applications.length + 1,
-        studentId: studentId,
-        jobId: jobId,
-        status: 'Applied',
-        date: new Date().toISOString().split('T')[0]
-      });
-
-      job.applicants++;
-      showToast('✓ [APPLICATION SUBMITTED]', `Successfully applied for ${job.role} at ${job.companyName}!`);
-      renderStudentProfile();
     }
 
+    function testTrigger1Quick() {
+      // Student 9: Vikram Nair (CGPA 6.50), Job 1 (Min CGPA 7.50)
+      applyForJob(9, 1);
+    }
+
+    // -------------------------------------------------------------
+    // Tab 3: Companies & Drives
+    // -------------------------------------------------------------
     function renderJobsTab() {
+      if (!db) return;
+      const jobs = query(`
+        SELECT 
+          jp.job_id,
+          c.company_name,
+          jp.role_title,
+          jp.min_cgpa,
+          jp.package_lpa,
+          jp.deadline,
+          COUNT(a.application_id) AS total_applicants
+        FROM job_postings jp
+        JOIN companies c ON jp.company_id = c.company_id
+        LEFT JOIN applications a ON jp.job_id = a.job_id
+        GROUP BY jp.job_id
+        ORDER BY jp.deadline ASC;
+      `);
+
       const table = document.getElementById('allJobsTable');
       table.innerHTML = jobs.map(j => `
         <tr class="hover:bg-slate-50">
-          <td class="py-2.5 px-3 font-mono">#${j.id}</td>
-          <td class="py-2.5 px-3 font-semibold text-slate-900">${j.companyName}</td>
-          <td class="py-2.5 px-3">${j.role}</td>
-          <td class="py-2.5 px-3">${j.minCgpa.toFixed(2)}</td>
-          <td class="py-2.5 px-3 font-bold text-slate-800">${j.packageLpa.toFixed(2)} LPA</td>
+          <td class="py-2.5 px-3">#${j.job_id}</td>
+          <td class="py-2.5 px-3 font-semibold text-slate-900">${j.company_name}</td>
+          <td class="py-2.5 px-3">${j.role_title}</td>
+          <td class="py-2.5 px-3 text-slate-600">${j.min_cgpa.toFixed(2)}</td>
+          <td class="py-2.5 px-3 font-bold text-slate-800">${j.package_lpa.toFixed(2)} LPA</td>
           <td class="py-2.5 px-3 text-slate-500">${j.deadline}</td>
-          <td class="py-2.5 px-3 font-semibold text-blue-600">${j.applicants} applicants</td>
+          <td class="py-2.5 px-3 font-semibold text-blue-600">${j.total_applicants} applicants</td>
         </tr>
+      `).join('');
+
+      // Populate companies in add job dropdown
+      const companies = query("SELECT * FROM companies ORDER BY company_id ASC;");
+      document.getElementById('newJobCompany').innerHTML = companies.map(c => `
+        <option value="${c.company_id}">${c.company_name} (${c.industry})</option>
       `).join('');
     }
 
     function handleCreateJob(e) {
       e.preventDefault();
-      const companyId = parseInt(document.getElementById('newJobCompany').value);
-      const company = companies.find(c => c.id === companyId);
-      const role = document.getElementById('newJobRole').value;
-      const minCgpa = parseFloat(document.getElementById('newJobCgpa').value);
+      const compId = parseInt(document.getElementById('newJobCompany').value);
+      const role = document.getElementById('newJobRole').value.trim();
+      const cgpa = parseFloat(document.getElementById('newJobCgpa').value);
       const pkg = parseFloat(document.getElementById('newJobPackage').value);
 
-      jobs.push({
-        id: jobs.length + 1,
-        companyId: company.id,
-        companyName: company.name,
-        role: role,
-        minCgpa: minCgpa,
-        packageLpa: pkg,
-        deadline: '2026-12-01',
-        applicants: 0
-      });
-
-      showToast('✓ [JOB DRIVE POSTED]', `New drive created for ${role} at ${company.name}`);
-      document.getElementById('newJobForm').reset();
-      renderJobsTab();
-    }
-
-    function renderApplicationsTab() {
-      const table = document.getElementById('applicationsTable');
-      table.innerHTML = applications.map(a => {
-        const student = students.find(s => s.id === a.studentId);
-        const job = jobs.find(j => j.id === a.jobId);
-        return `
-          <tr class="hover:bg-slate-50">
-            <td class="py-2.5 px-3 font-mono">#${a.id}</td>
-            <td class="py-2.5 px-3 font-semibold text-slate-900">${student.name}</td>
-            <td class="py-2.5 px-3">${student.dept}</td>
-            <td class="py-2.5 px-3 font-mono">${student.cgpa.toFixed(2)}</td>
-            <td class="py-2.5 px-3">${job.companyName} &bull; <span class="text-slate-500">${job.role}</span></td>
-            <td class="py-2.5 px-3 font-bold">${job.packageLpa.toFixed(2)} LPA</td>
-            <td class="py-2.5 px-3">
-              <span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
-                a.status === 'Selected' ? 'bg-emerald-100 text-emerald-800' :
-                a.status === 'Rejected' ? 'bg-rose-100 text-rose-800' :
-                a.status === 'Shortlisted' ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-100 text-slate-700'
-              }">${a.status}</span>
-            </td>
-            <td class="py-2.5 px-3 text-right">
-              <select onchange="handleUpdateStatus(${a.id}, this.value)" class="p-1 text-xs border rounded bg-white">
-                <option value="">Update...</option>
-                <option value="Shortlisted">Shortlisted</option>
-                <option value="Selected">Selected</option>
-                <option value="Rejected">Rejected</option>
-              </select>
-            </td>
-          </tr>
-        `;
-      }).join('');
-    }
-
-    function handleUpdateStatus(appId, newStatus) {
-      if (!newStatus) return;
-      const app = applications.find(a => a.id === appId);
-      const student = students.find(s => s.id === app.studentId);
-      app.status = newStatus;
-
-      // Trigger 2 Verification: If Selected -> update student to Placed
-      if (newStatus === 'Selected') {
-        student.status = 'Placed';
-        showToast(
-          '✓ [DATABASE TRIGGER 2 FIRED]',
-          `Application #${appId} set to 'Selected'. Student ${student.name}'s status was automatically updated to 'Placed'!`
+      try {
+        execute(
+          "INSERT INTO job_postings (company_id, role_title, min_cgpa, package_lpa, deadline) VALUES (?, ?, ?, ?, ?);",
+          [compId, role, cgpa, pkg, '2026-12-01']
         );
-      } else {
-        showToast('✓ Status Updated', `Application #${appId} updated to ${newStatus}`);
+        showToast('✓ [JOB DRIVE INSERTED]', `Executed INSERT INTO job_postings for role: ${role}`);
+        document.getElementById('newJobForm').reset();
+        renderJobsTab();
+        renderStudentProfile();
+      } catch (err) {
+        showToast('SQL Error', err.message, 'error');
       }
+    }
 
-      renderApplicationsTab();
-      renderAnalytics();
+    // -------------------------------------------------------------
+    // Tab 4: Admin Management
+    // -------------------------------------------------------------
+    function renderApplicationsTab() {
+      if (!db) return;
+      const apps = query(`
+        SELECT 
+          a.application_id,
+          a.student_id,
+          s.name AS student_name,
+          s.department,
+          s.cgpa,
+          s.placement_status,
+          c.company_name,
+          jp.role_title,
+          jp.package_lpa,
+          a.status,
+          a.application_date
+        FROM applications a
+        JOIN students s ON a.student_id = s.student_id
+        JOIN job_postings jp ON a.job_id = jp.job_id
+        JOIN companies c ON jp.company_id = c.company_id
+        ORDER BY a.application_id DESC;
+      `);
+
+      const table = document.getElementById('applicationsTable');
+      table.innerHTML = apps.map(a => `
+        <tr class="hover:bg-slate-50">
+          <td class="py-2.5 px-3">#${a.application_id}</td>
+          <td class="py-2.5 px-3 font-semibold text-slate-900">${a.student_name}</td>
+          <td class="py-2.5 px-3">${a.department}</td>
+          <td class="py-2.5 px-3 font-mono">${a.cgpa.toFixed(2)}</td>
+          <td class="py-2.5 px-3">${a.company_name} &bull; <span class="text-slate-500">${a.role_title}</span></td>
+          <td class="py-2.5 px-3 font-bold">${a.package_lpa.toFixed(2)} LPA</td>
+          <td class="py-2.5 px-3">
+            <span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
+              a.status === 'Selected' ? 'bg-emerald-100 text-emerald-800' :
+              a.status === 'Rejected' ? 'bg-rose-100 text-rose-800' :
+              a.status === 'Shortlisted' ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-100 text-slate-700'
+            }">${a.status}</span>
+          </td>
+          <td class="py-2.5 px-3 text-right">
+            <select onchange="updateApplicationStatus(${a.application_id}, this.value)" class="p-1 text-xs border rounded bg-white">
+              <option value="">Update...</option>
+              <option value="Shortlisted" ${a.status === 'Shortlisted' ? 'disabled' : ''}>Shortlisted</option>
+              <option value="Selected" ${a.status === 'Selected' ? 'disabled' : ''}>Selected (Trigger 2)</option>
+              <option value="Rejected" ${a.status === 'Rejected' ? 'disabled' : ''}>Rejected</option>
+            </select>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function updateApplicationStatus(appId, newStatus) {
+      if (!newStatus) return;
+      try {
+        // This UPDATE will fire trg_auto_update_placement_status if newStatus == 'Selected'
+        execute("UPDATE applications SET status = ? WHERE application_id = ?;", [newStatus, appId]);
+
+        if (newStatus === 'Selected') {
+          showToast(
+            '✓ [DATABASE TRIGGER 2 FIRED]',
+            `Executed UPDATE on applications. Trigger automatically updated students.placement_status = 'Placed' in database!`
+          );
+        } else {
+          showToast('✓ Status Updated', `Application #${appId} updated to ${newStatus}`);
+        }
+
+        renderApplicationsTab();
+        renderAnalytics();
+        renderStudentsTab();
+      } catch (err) {
+        showToast('SQL Error', err.message, 'error');
+      }
+    }
+
+    // -------------------------------------------------------------
+    // Tab 5: Live SQL Terminal
+    // -------------------------------------------------------------
+    function setSqlEditor(sql) {
+      document.getElementById('sqlInput').value = sql;
+      runCustomSql();
+    }
+
+    function runCustomSql() {
+      const sql = document.getElementById('sqlInput').value.trim();
+      if (!sql) return;
+
+      const container = document.getElementById('queryOutputContainer');
+      const thead = document.getElementById('queryResultHead');
+      const tbody = document.getElementById('queryResultBody');
+      const stats = document.getElementById('queryStats');
+
+      const t0 = performance.now();
+      try {
+        const res = db.exec(sql);
+        const t1 = performance.now();
+        const duration = (t1 - t0).toFixed(2);
+        updateSqlTicker(sql, duration);
+
+        if (res.length === 0) {
+          stats.innerText = `Query executed in ${duration} ms (0 rows / statement executed)`;
+          container.classList.remove('hidden');
+          thead.innerHTML = '';
+          tbody.innerHTML = `<tr><td class="p-4 text-center text-slate-400">Statement completed successfully. No rows returned.</td></tr>`;
+          saveDatabase();
+          renderAllTabs();
+          return;
+        }
+
+        const cols = res[0].columns;
+        const rows = res[0].values;
+
+        stats.innerText = `Returned ${rows.length} row(s) in ${duration} ms`;
+
+        thead.innerHTML = `<tr>${cols.map(c => `<th class="py-2.5 px-3 font-semibold">${c}</th>`).join('')}</tr>`;
+        tbody.innerHTML = rows.map(r => `
+          <tr class="hover:bg-slate-50">
+            ${r.map(val => `<td class="py-2 px-3 text-slate-700">${val !== null ? val : '<span class="text-slate-400 italic">NULL</span>'}</td>`).join('')}
+          </tr>
+        `).join('');
+
+        container.classList.remove('hidden');
+        saveDatabase();
+        renderAllTabs();
+      } catch (err) {
+        stats.innerText = `Error: ${err.message}`;
+        showToast('SQL Syntax / Execution Error', err.message, 'error');
+      }
+    }
+
+    // Export .db binary file
+    function downloadDbFile() {
+      if (!db) return;
+      const binary = db.export();
+      const blob = new Blob([binary], { type: 'application/octet-stream' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'placement.db';
+      a.click();
+      showToast('✓ Database Exported', 'Downloaded placement.db SQLite database file.');
+    }
+
+    function resetDatabasePrompt() {
+      if (confirm("Reset the SQLite database back to original schema and seed data?")) {
+        localStorage.removeItem('placement_sqlite_db');
+        initDatabase(true);
+      }
     }
 
     // Init on load
     window.onload = () => {
       lucide.createIcons();
-      renderAnalytics();
+      initDatabase(false);
     };
   </script>
 </body>
