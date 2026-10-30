@@ -1,0 +1,22 @@
+# Compiled Java class files and build directory
+bin/
+*.class
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Runtime SQLite Database (generated on first launch)
+placement.db
+
+# IDE and Editor configurations
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+Thumbs.db
+Desktop.ini
+.DS_Store
