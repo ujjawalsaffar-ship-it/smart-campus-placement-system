@@ -118,7 +118,7 @@ smart_campus_placement/
 - **Java Development Kit (JDK 21 or 17+)** installed and configured in your `PATH`.
 
 ### Method 1: Web Browser Frontend (Streamlit Dashboard)
-Double-click **`run_frontend.bat`** (or run `streamlit run app.py`).
+Double-click **`run_frontend.bat`** (or run `streamlit run streamlit_app.py`).
 - Opens an interactive web dashboard in your browser.
 - Contains tabs for TPO Analytics, Student Application Portal, Company Drives, and Application Management.
 
@@ -129,7 +129,7 @@ Double-click **`run_frontend.bat`** (or run `streamlit run app.py`).
 ### Method 3: Manual Terminal Commands
 ```powershell
 # To run the Web Dashboard:
-streamlit run app.py
+streamlit run streamlit_app.py
 
 # To run the Java CLI backend:
 java -cp "bin;lib/*" com.campus.placement.PlacementApp
