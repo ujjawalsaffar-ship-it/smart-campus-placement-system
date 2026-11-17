@@ -6,12 +6,25 @@
   <title>Smart Campus Placement Management System</title>
   <!-- Tailwind CSS via CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+    }
+  </script>
   <!-- Chart.js for Live Analytics -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
   <!-- sql.js (Real SQLite Engine compiled to WebAssembly) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.12.0/sql-wasm.js"></script>
+  <script>
+    // Immediate Theme Initialization to avoid FOUC
+    if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  </script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
     body { font-family: 'Inter', sans-serif; }
@@ -21,35 +34,45 @@
       color: #2563EB;
       background-color: #EFF6FF;
     }
+    .dark .tab-btn.active {
+      border-color: #3B82F6;
+      color: #60A5FA;
+      background-color: rgba(59, 130, 246, 0.15);
+    }
   </style>
 </head>
-<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-200">
 
   <!-- Header -->
-  <header class="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+  <header class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50 shadow-sm transition-colors duration-200">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-xl shadow-md shadow-blue-500/20">
           🎓
         </div>
         <div>
-          <h1 class="text-xl font-bold text-slate-900 leading-tight">Smart Campus Placement Management System</h1>
-          <p class="text-xs text-slate-500 font-medium">Relational Database Engine &bull; Real-time Triggers &bull; Full 3NF Schema</p>
+          <h1 class="text-xl font-bold text-slate-900 dark:text-white leading-tight">Smart Campus Placement Management System</h1>
+          <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">Relational Database Engine &bull; Real-time Triggers &bull; Full 3NF Schema</p>
         </div>
       </div>
-      <div class="flex items-center gap-2.5">
-        <div id="dbStatusBadge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+      <div class="flex items-center gap-2 flex-wrap">
+        <div id="dbStatusBadge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/80">
           <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
           <span id="dbStatusText">Initializing Database...</span>
         </div>
-        <button onclick="downloadDbFile()" title="Export current SQLite .db file" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition">
+        <!-- Dark Mode Toggle Button -->
+        <button onclick="toggleTheme()" id="themeToggleBtn" title="Toggle Light / Dark Mode" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition">
+          <span id="themeToggleIcon"><i data-lucide="moon" class="w-3.5 h-3.5"></i></span>
+          <span id="themeToggleText">Theme</span>
+        </button>
+        <button onclick="downloadDbFile()" title="Export current SQLite .db file" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition">
           <i data-lucide="download" class="w-3.5 h-3.5"></i> Export .db
         </button>
-        <button onclick="resetDatabasePrompt()" title="Reset to initial seed data" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition">
+        <button onclick="resetDatabasePrompt()" title="Reset to initial seed data" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 transition">
           <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i> Reset DB
         </button>
         <a href="https://github.com/ujjawalsaffar-ship-it/smart-campus-placement-system" target="_blank"
-           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 text-white hover:bg-slate-800 transition">
+           class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-white transition">
           <i data-lucide="github" class="w-3.5 h-3.5"></i> GitHub
         </a>
       </div>
@@ -57,25 +80,25 @@
   </header>
 
   <!-- Navigation Tabs -->
-  <nav class="bg-white border-b border-slate-200">
+  <nav class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 transition-colors duration-200">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex space-x-1 sm:space-x-2 overflow-x-auto py-2" id="tabNav">
-        <button onclick="switchTab('analytics')" class="tab-btn active px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-blue-600 border border-transparent transition flex items-center gap-2">
+        <button onclick="switchTab('analytics')" class="tab-btn active px-4 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 border border-transparent transition flex items-center gap-2">
           <i data-lucide="bar-chart-3" class="w-4 h-4"></i> TPO Analytics
         </button>
-        <button onclick="switchTab('students')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-blue-600 border border-transparent transition flex items-center gap-2">
+        <button onclick="switchTab('students')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 border border-transparent transition flex items-center gap-2">
           <i data-lucide="graduation-cap" class="w-4 h-4"></i> Student Portal (Apply)
         </button>
-        <button onclick="switchTab('jobs')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-blue-600 border border-transparent transition flex items-center gap-2">
+        <button onclick="switchTab('jobs')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 border border-transparent transition flex items-center gap-2">
           <i data-lucide="briefcase" class="w-4 h-4"></i> Companies & Drives
         </button>
-        <button onclick="switchTab('applications')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-blue-600 border border-transparent transition flex items-center gap-2">
+        <button onclick="switchTab('applications')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 border border-transparent transition flex items-center gap-2">
           <i data-lucide="clipboard-check" class="w-4 h-4"></i> Admin Management
         </button>
-        <button onclick="switchTab('sqlterminal')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-blue-600 border border-transparent transition flex items-center gap-2">
+        <button onclick="switchTab('sqlterminal')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 border border-transparent transition flex items-center gap-2">
           <i data-lucide="terminal" class="w-4 h-4"></i> Live SQL Terminal
         </button>
-        <button onclick="switchTab('schema')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-blue-600 border border-transparent transition flex items-center gap-2">
+        <button onclick="switchTab('schema')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 border border-transparent transition flex items-center gap-2">
           <i data-lucide="database" class="w-4 h-4"></i> Schema & Triggers
         </button>
       </div>
@@ -101,73 +124,73 @@
         <h4 id="toastTitle" class="text-sm font-bold"></h4>
         <p id="toastMessage" class="text-xs mt-0.5 font-mono"></p>
       </div>
-      <button onclick="hideToast()" class="text-slate-400 hover:text-slate-600 text-sm font-bold">&times;</button>
+      <button onclick="hideToast()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm font-bold">&times;</button>
     </div>
 
     <!-- TAB 1: TPO Analytics -->
     <section id="tab-analytics" class="tab-content space-y-6">
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+        <div class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between transition-colors">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Registered</p>
-            <h3 class="text-3xl font-extrabold text-slate-900 mt-1" id="statTotalStudents">--</h3>
-            <p class="text-xs text-slate-500 mt-1">From table <code>students</code></p>
+            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Total Registered</p>
+            <h3 class="text-3xl font-extrabold text-slate-900 dark:text-white mt-1" id="statTotalStudents">--</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">From table <code>students</code></p>
           </div>
-          <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+          <div class="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
             <i data-lucide="users" class="w-6 h-6"></i>
           </div>
         </div>
 
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+        <div class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between transition-colors">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Placed</p>
-            <h3 class="text-3xl font-extrabold text-emerald-600 mt-1" id="statTotalPlaced">--</h3>
-            <p class="text-xs text-slate-500 mt-1">Auto-synchronized by Trigger 2</p>
+            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Total Placed</p>
+            <h3 class="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1" id="statTotalPlaced">--</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Auto-synchronized by Trigger 2</p>
           </div>
-          <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+          <div class="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
             <i data-lucide="check-circle-2" class="w-6 h-6"></i>
           </div>
         </div>
 
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+        <div class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between transition-colors">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Placement Rate</p>
-            <h3 class="text-3xl font-extrabold text-indigo-600 mt-1" id="statPlacementRate">--%</h3>
-            <p class="text-xs text-slate-500 mt-1">College Target &gt; 80%</p>
+            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Placement Rate</p>
+            <h3 class="text-3xl font-extrabold text-indigo-600 dark:text-indigo-400 mt-1" id="statPlacementRate">--%</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">College Target &gt; 80%</p>
           </div>
-          <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+          <div class="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
             <i data-lucide="trending-up" class="w-6 h-6"></i>
           </div>
         </div>
 
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+        <div class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between transition-colors">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Highest Package</p>
-            <h3 class="text-3xl font-extrabold text-purple-600 mt-1" id="statHighestPackage">-- LPA</h3>
-            <p class="text-xs text-slate-500 mt-1">Subquery: <code>SELECT MAX(...)</code></p>
+            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Highest Package</p>
+            <h3 class="text-3xl font-extrabold text-purple-600 dark:text-purple-400 mt-1" id="statHighestPackage">-- LPA</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Subquery: <code>SELECT MAX(...)</code></p>
           </div>
-          <div class="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+          <div class="w-12 h-12 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center">
             <i data-lucide="award" class="w-6 h-6"></i>
           </div>
         </div>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+        <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
           <div class="flex items-center justify-between mb-4">
-            <h3 class="font-bold text-slate-900 text-base">Department Placement % (View: <code class="text-xs bg-slate-100 px-2 py-0.5 rounded text-blue-600 font-mono">v_placement_summary</code>)</h3>
+            <h3 class="font-bold text-slate-900 dark:text-white text-base">Department Placement % (View: <code class="text-xs bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-blue-600 dark:text-blue-400 font-mono">v_placement_summary</code>)</h3>
           </div>
           <div class="h-64">
             <canvas id="placementChart"></canvas>
           </div>
         </div>
 
-        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-          <h3 class="font-bold text-slate-900 text-base mb-4">Department Summary (Queried from View)</h3>
+        <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
+          <h3 class="font-bold text-slate-900 dark:text-white text-base mb-4">Department Summary (Queried from View)</h3>
           <div class="overflow-x-auto">
             <table class="w-full text-left text-xs border-collapse">
               <thead>
-                <tr class="border-b border-slate-200 bg-slate-50 text-slate-600 font-mono">
+                <tr class="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 font-mono">
                   <th class="py-2.5 px-3 font-semibold">Department</th>
                   <th class="py-2.5 px-3 font-semibold">Total Students</th>
                   <th class="py-2.5 px-3 font-semibold">Placed</th>
@@ -175,7 +198,7 @@
                   <th class="py-2.5 px-3 font-semibold">Avg Package (LPA)</th>
                 </tr>
               </thead>
-              <tbody id="deptSummaryTable" class="divide-y divide-slate-100 font-mono">
+              <tbody id="deptSummaryTable" class="divide-y divide-slate-100 dark:divide-slate-800 font-mono">
                 <tr><td colspan="5" class="py-4 text-center text-slate-400">Loading database query...</td></tr>
               </tbody>
             </table>
@@ -186,35 +209,35 @@
 
     <!-- TAB 2: Student Portal -->
     <section id="tab-students" class="tab-content hidden space-y-6">
-      <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-        <h3 class="font-bold text-slate-900 text-base mb-3 flex items-center gap-2">
-          <i data-lucide="user-check" class="w-5 h-5 text-blue-600"></i>
+      <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
+        <h3 class="font-bold text-slate-900 dark:text-white text-base mb-3 flex items-center gap-2">
+          <i data-lucide="user-check" class="w-5 h-5 text-blue-600 dark:text-blue-400"></i>
           Select Student Profile (from SQL table: <code>students</code>)
         </h3>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
           <div class="md:col-span-2">
-            <select id="studentSelect" onchange="renderStudentProfile()" class="w-full p-2.5 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono">
+            <select id="studentSelect" onchange="renderStudentProfile()" class="w-full p-2.5 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono">
               <!-- Injected via SQLite query -->
             </select>
           </div>
-          <div id="studentProfileCard" class="p-4 rounded-xl bg-blue-50 border border-blue-100 text-xs space-y-1">
+          <div id="studentProfileCard" class="p-4 rounded-xl bg-blue-50 dark:bg-slate-800/70 border border-blue-100 dark:border-slate-700 text-xs space-y-1">
             <!-- Dynamic profile info -->
           </div>
         </div>
       </div>
 
       <!-- Eligible Drives Table -->
-      <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+      <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
         <div class="flex items-center justify-between mb-4">
           <div>
-            <h3 class="font-bold text-slate-900 text-base">Eligible Job Drives for You</h3>
-            <p class="text-xs text-slate-500">Evaluated in real-time by SQL View <code class="bg-slate-100 px-1.5 py-0.5 rounded text-blue-600 font-mono">v_student_eligible_jobs</code> (CGPA &ge; min_cgpa)</p>
+            <h3 class="font-bold text-slate-900 dark:text-white text-base">Eligible Job Drives for You</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Evaluated in real-time by SQL View <code class="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-blue-600 dark:text-blue-400 font-mono">v_student_eligible_jobs</code> (CGPA &ge; min_cgpa)</p>
           </div>
         </div>
         <div class="overflow-x-auto">
           <table class="w-full text-left text-xs border-collapse font-mono">
             <thead>
-              <tr class="border-b border-slate-200 bg-slate-50 text-slate-600">
+              <tr class="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300">
                 <th class="py-2.5 px-3 font-semibold">Job ID</th>
                 <th class="py-2.5 px-3 font-semibold">Company</th>
                 <th class="py-2.5 px-3 font-semibold">Role Title</th>
@@ -224,7 +247,7 @@
                 <th class="py-2.5 px-3 font-semibold text-right">Action</th>
               </tr>
             </thead>
-            <tbody id="eligibleJobsTable" class="divide-y divide-slate-100">
+            <tbody id="eligibleJobsTable" class="divide-y divide-slate-100 dark:divide-slate-800">
               <!-- Injected via SQLite query -->
             </tbody>
           </table>
@@ -232,13 +255,13 @@
       </div>
 
       <!-- Trigger 1 Interactive Test Banner -->
-      <div class="bg-amber-50/80 border border-amber-200 p-5 rounded-2xl flex items-start gap-4">
-        <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+      <div class="bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 p-5 rounded-2xl flex items-start gap-4">
+        <div class="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
           <i data-lucide="shield-alert" class="w-5 h-5"></i>
         </div>
         <div class="text-xs space-y-1.5">
-          <h4 class="font-bold text-amber-900 text-sm">🧪 Test Database Trigger 1 (Eligibility Enforcement)</h4>
-          <p class="text-amber-800 leading-relaxed">
+          <h4 class="font-bold text-amber-900 dark:text-amber-200 text-sm">🧪 Test Database Trigger 1 (Eligibility Enforcement)</h4>
+          <p class="text-amber-800 dark:text-amber-300 leading-relaxed">
             Choose <strong>Student #9 (Vikram Nair, CGPA 6.50)</strong> in the dropdown above, and try applying for 
             <strong>Job #1 (Associate Software Engineer, Min CGPA 7.50)</strong>:
           </p>
@@ -251,14 +274,14 @@
 
     <!-- TAB 3: Companies & Drives -->
     <section id="tab-jobs" class="tab-content hidden space-y-6">
-      <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+      <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="font-bold text-slate-900 text-base">Active Placement Drives (Table: <code>job_postings</code>)</h3>
+          <h3 class="font-bold text-slate-900 dark:text-white text-base">Active Placement Drives (Table: <code>job_postings</code>)</h3>
         </div>
         <div class="overflow-x-auto">
           <table class="w-full text-left text-xs border-collapse font-mono">
             <thead>
-              <tr class="border-b border-slate-200 bg-slate-50 text-slate-600">
+              <tr class="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300">
                 <th class="py-2.5 px-3 font-semibold">Job ID</th>
                 <th class="py-2.5 px-3 font-semibold">Company Name</th>
                 <th class="py-2.5 px-3 font-semibold">Role</th>
@@ -268,7 +291,7 @@
                 <th class="py-2.5 px-3 font-semibold">Applicants</th>
               </tr>
             </thead>
-            <tbody id="allJobsTable" class="divide-y divide-slate-100">
+            <tbody id="allJobsTable" class="divide-y divide-slate-100 dark:divide-slate-800">
               <!-- Injected via SQLite query -->
             </tbody>
           </table>
@@ -276,29 +299,29 @@
       </div>
 
       <!-- Add New Opening Form -->
-      <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-        <h3 class="font-bold text-slate-900 text-base mb-4">Post a New Job Drive (SQL INSERT)</h3>
+      <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
+        <h3 class="font-bold text-slate-900 dark:text-white text-base mb-4">Post a New Job Drive (SQL INSERT)</h3>
         <form id="newJobForm" onsubmit="handleCreateJob(event)" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs font-mono">
           <div>
-            <label class="block font-semibold text-slate-600 mb-1">Company</label>
-            <select id="newJobCompany" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg">
+            <label class="block font-semibold text-slate-600 dark:text-slate-400 mb-1">Company</label>
+            <select id="newJobCompany" class="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg">
               <!-- Dynamic options -->
             </select>
           </div>
           <div>
-            <label class="block font-semibold text-slate-600 mb-1">Role Title</label>
-            <input type="text" id="newJobRole" required placeholder="e.g. AI Research Intern" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg">
+            <label class="block font-semibold text-slate-600 dark:text-slate-400 mb-1">Role Title</label>
+            <input type="text" id="newJobRole" required placeholder="e.g. AI Research Intern" class="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg">
           </div>
           <div>
-            <label class="block font-semibold text-slate-600 mb-1">Min CGPA Required</label>
-            <input type="number" step="0.1" min="0" max="10" id="newJobCgpa" value="7.5" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg">
+            <label class="block font-semibold text-slate-600 dark:text-slate-400 mb-1">Min CGPA Required</label>
+            <input type="number" step="0.1" min="0" max="10" id="newJobCgpa" value="7.5" class="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg">
           </div>
           <div>
-            <label class="block font-semibold text-slate-600 mb-1">Package (LPA)</label>
-            <input type="number" step="0.5" min="1" max="100" id="newJobPackage" value="14.0" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg">
+            <label class="block font-semibold text-slate-600 dark:text-slate-400 mb-1">Package (LPA)</label>
+            <input type="number" step="0.5" min="1" max="100" id="newJobPackage" value="14.0" class="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg">
           </div>
           <div class="sm:col-span-2 lg:col-span-4 flex justify-end">
-            <button type="submit" class="px-5 py-2.5 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition">
+            <button type="submit" class="px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold transition">
               Execute SQL INSERT
             </button>
           </div>
@@ -308,17 +331,17 @@
 
     <!-- TAB 4: Admin Management -->
     <section id="tab-applications" class="tab-content hidden space-y-6">
-      <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+      <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
         <div class="flex items-center justify-between mb-4">
           <div>
-            <h3 class="font-bold text-slate-900 text-base">All Student Applications</h3>
-            <p class="text-xs text-slate-500">Update status to <span class="text-emerald-600 font-semibold">'Selected'</span> to fire <strong>Trigger 2</strong> and auto-update student placement status</p>
+            <h3 class="font-bold text-slate-900 dark:text-white text-base">All Student Applications</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Update status to <span class="text-emerald-600 dark:text-emerald-400 font-semibold">'Selected'</span> to fire <strong>Trigger 2</strong> and auto-update student placement status</p>
           </div>
         </div>
         <div class="overflow-x-auto">
           <table class="w-full text-left text-xs border-collapse font-mono">
             <thead>
-              <tr class="border-b border-slate-200 bg-slate-50 text-slate-600">
+              <tr class="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300">
                 <th class="py-2.5 px-3 font-semibold">App ID</th>
                 <th class="py-2.5 px-3 font-semibold">Student Name</th>
                 <th class="py-2.5 px-3 font-semibold">Dept</th>
@@ -329,7 +352,7 @@
                 <th class="py-2.5 px-3 font-semibold text-right">Update Status (SQL)</th>
               </tr>
             </thead>
-            <tbody id="applicationsTable" class="divide-y divide-slate-100">
+            <tbody id="applicationsTable" class="divide-y divide-slate-100 dark:divide-slate-800">
               <!-- Injected via SQLite query -->
             </tbody>
           </table>
@@ -339,27 +362,27 @@
 
     <!-- TAB 5: Live SQL Terminal -->
     <section id="tab-sqlterminal" class="tab-content hidden space-y-6">
-      <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+      <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4 transition-colors">
         <div class="flex items-center justify-between">
           <div>
-            <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
-              <i data-lucide="terminal" class="w-5 h-5 text-blue-600"></i>
+            <h3 class="font-bold text-slate-900 dark:text-white text-base flex items-center gap-2">
+              <i data-lucide="terminal" class="w-5 h-5 text-blue-600 dark:text-blue-400"></i>
               Interactive SQLite Query Console
             </h3>
-            <p class="text-xs text-slate-500">Run any ANSI SQL / SQLite query directly against the in-browser database engine</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Run any ANSI SQL / SQLite query directly against the in-browser database engine</p>
           </div>
         </div>
 
         <div class="flex flex-wrap gap-2 text-xs">
-          <span class="text-slate-400 py-1 font-semibold">Quick Queries:</span>
-          <button onclick="setSqlEditor('SELECT * FROM students ORDER BY cgpa DESC;')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 font-mono">All Students</button>
-          <button onclick="setSqlEditor('SELECT * FROM v_placement_summary;')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 font-mono">View Summary</button>
-          <button onclick="setSqlEditor('SELECT c.company_name, COUNT(jp.job_id) AS jobs, ROUND(AVG(jp.package_lpa),2) AS avg_pkg FROM companies c JOIN job_postings jp ON c.company_id = jp.company_id GROUP BY c.company_id HAVING AVG(jp.package_lpa) >= 10;')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 font-mono">HAVING &gt; 10 LPA</button>
-          <button onclick="setSqlEditor('SELECT name, department, cgpa FROM students WHERE placement_status = \'Unplaced\' AND cgpa >= 8.0;')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 font-mono">High CGPA Unplaced</button>
+          <span class="text-slate-400 dark:text-slate-500 py-1 font-semibold">Quick Queries:</span>
+          <button onclick="setSqlEditor('SELECT * FROM students ORDER BY cgpa DESC;')" class="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-700 dark:text-slate-200 font-mono transition">All Students</button>
+          <button onclick="setSqlEditor('SELECT * FROM v_placement_summary;')" class="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-700 dark:text-slate-200 font-mono transition">View Summary</button>
+          <button onclick="setSqlEditor('SELECT c.company_name, COUNT(jp.job_id) AS jobs, ROUND(AVG(jp.package_lpa),2) AS avg_pkg FROM companies c JOIN job_postings jp ON c.company_id = jp.company_id GROUP BY c.company_id HAVING AVG(jp.package_lpa) >= 10;')" class="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-700 dark:text-slate-200 font-mono transition">HAVING &gt; 10 LPA</button>
+          <button onclick="setSqlEditor('SELECT name, department, cgpa FROM students WHERE placement_status = \'Unplaced\' AND cgpa >= 8.0;')" class="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-700 dark:text-slate-200 font-mono transition">High CGPA Unplaced</button>
         </div>
 
         <div class="space-y-2">
-          <textarea id="sqlInput" rows="4" class="w-full p-3 font-mono text-xs bg-slate-900 text-emerald-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Type your SQL query here... e.g. SELECT * FROM students;"></textarea>
+          <textarea id="sqlInput" rows="4" class="w-full p-3 font-mono text-xs bg-slate-900 text-emerald-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 border border-slate-700" placeholder="Type your SQL query here... e.g. SELECT * FROM students;"></textarea>
           <div class="flex justify-between items-center">
             <span id="queryStats" class="text-xs text-slate-500 font-mono"></span>
             <button onclick="runCustomSql()" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-xs transition flex items-center gap-1.5 shadow-sm">
@@ -368,11 +391,11 @@
           </div>
         </div>
 
-        <div id="queryOutputContainer" class="border border-slate-200 rounded-xl overflow-hidden hidden">
+        <div id="queryOutputContainer" class="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden hidden">
           <div class="overflow-x-auto max-h-96">
             <table id="queryResultTable" class="w-full text-left text-xs border-collapse font-mono">
-              <thead id="queryResultHead" class="bg-slate-100 text-slate-700 border-b border-slate-200"></thead>
-              <tbody id="queryResultBody" class="divide-y divide-slate-100"></tbody>
+              <thead id="queryResultHead" class="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700"></thead>
+              <tbody id="queryResultBody" class="divide-y divide-slate-100 dark:divide-slate-800 text-slate-800 dark:text-slate-200"></tbody>
             </table>
           </div>
         </div>
@@ -382,42 +405,42 @@
     <!-- TAB 6: Schema & Triggers -->
     <section id="tab-schema" class="tab-content hidden space-y-6">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-          <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
-            <i data-lucide="layers" class="w-5 h-5 text-blue-600"></i>
+        <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4 transition-colors">
+          <h3 class="font-bold text-slate-900 dark:text-white text-base flex items-center gap-2">
+            <i data-lucide="layers" class="w-5 h-5 text-blue-600 dark:text-blue-400"></i>
             Relational Schema (3NF)
           </h3>
-          <div class="text-xs space-y-2 text-slate-600">
-            <div class="p-3 bg-slate-50 rounded-lg font-mono">
-              <span class="font-bold text-blue-700">students</span> (<strong>student_id</strong> PK, name, email UNIQUE, department, cgpa, placement_status)
+          <div class="text-xs space-y-2 text-slate-600 dark:text-slate-300">
+            <div class="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-lg font-mono">
+              <span class="font-bold text-blue-700 dark:text-blue-400">students</span> (<strong>student_id</strong> PK, name, email UNIQUE, department, cgpa, placement_status)
             </div>
-            <div class="p-3 bg-slate-50 rounded-lg font-mono">
-              <span class="font-bold text-blue-700">companies</span> (<strong>company_id</strong> PK, company_name UNIQUE, industry, location, contact_email)
+            <div class="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-lg font-mono">
+              <span class="font-bold text-blue-700 dark:text-blue-400">companies</span> (<strong>company_id</strong> PK, company_name UNIQUE, industry, location, contact_email)
             </div>
-            <div class="p-3 bg-slate-50 rounded-lg font-mono">
-              <span class="font-bold text-blue-700">job_postings</span> (<strong>job_id</strong> PK, company_id FK, role_title, min_cgpa, package_lpa, deadline)
+            <div class="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-lg font-mono">
+              <span class="font-bold text-blue-700 dark:text-blue-400">job_postings</span> (<strong>job_id</strong> PK, company_id FK, role_title, min_cgpa, package_lpa, deadline)
             </div>
-            <div class="p-3 bg-slate-50 rounded-lg font-mono">
-              <span class="font-bold text-blue-700">applications</span> (<strong>application_id</strong> PK, student_id FK, job_id FK, status, application_date, UNIQUE(student_id, job_id))
+            <div class="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-lg font-mono">
+              <span class="font-bold text-blue-700 dark:text-blue-400">applications</span> (<strong>application_id</strong> PK, student_id FK, job_id FK, status, application_date, UNIQUE(student_id, job_id))
             </div>
           </div>
         </div>
 
-        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-          <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
+        <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4 transition-colors">
+          <h3 class="font-bold text-slate-900 dark:text-white text-base flex items-center gap-2">
             <i data-lucide="zap" class="w-5 h-5 text-amber-500"></i>
             Business Rule Triggers (SQLite / JDBC)
           </h3>
-          <div class="text-xs space-y-3 text-slate-600">
+          <div class="text-xs space-y-3 text-slate-600 dark:text-slate-300">
             <div class="border-l-4 border-amber-500 pl-3">
-              <p class="font-bold text-slate-900">Trigger 1: Eligibility Validation</p>
-              <p class="text-slate-500 text-[11px] font-mono mt-0.5">BEFORE INSERT ON applications</p>
-              <p class="mt-1 text-slate-600">Checks student's CGPA &ge; job's min_cgpa. If not, fires <code class="font-bold">RAISE(ABORT)</code> to reject application.</p>
+              <p class="font-bold text-slate-900 dark:text-white">Trigger 1: Eligibility Validation</p>
+              <p class="text-slate-500 dark:text-slate-400 text-[11px] font-mono mt-0.5">BEFORE INSERT ON applications</p>
+              <p class="mt-1 text-slate-600 dark:text-slate-300">Checks student's CGPA &ge; job's min_cgpa. If not, fires <code class="font-bold">RAISE(ABORT)</code> to reject application.</p>
             </div>
             <div class="border-l-4 border-emerald-500 pl-3">
-              <p class="font-bold text-slate-900">Trigger 2: Bidirectional Placement Synchronization</p>
-              <p class="text-slate-500 text-[11px] font-mono mt-0.5">AFTER UPDATE OF status / AFTER DELETE ON applications</p>
-              <p class="mt-1 text-slate-600">Automatically sets <code class="font-bold text-emerald-700">students.placement_status = 'Placed'</code> when an offer is 'Selected'. If that offer is later rejected or deleted, automatically reverts the student's status back to <code class="font-bold text-amber-700">'Unplaced'</code> (unless they hold another active 'Selected' offer).</p>
+              <p class="font-bold text-slate-900 dark:text-white">Trigger 2: Bidirectional Placement Synchronization</p>
+              <p class="text-slate-500 dark:text-slate-400 text-[11px] font-mono mt-0.5">AFTER UPDATE OF status / AFTER DELETE ON applications</p>
+              <p class="mt-1 text-slate-600 dark:text-slate-300">Automatically sets <code class="font-bold text-emerald-600 dark:text-emerald-400">students.placement_status = 'Placed'</code> when an offer is 'Selected'. If that offer is later rejected or deleted, automatically reverts the student's status back to <code class="font-bold text-amber-600 dark:text-amber-400">'Unplaced'</code> (unless they hold another active 'Selected' offer).</p>
             </div>
           </div>
         </div>
@@ -427,13 +450,44 @@
   </main>
 
   <!-- Footer -->
-  <footer class="bg-white border-t border-slate-200 py-4 mt-auto">
-    <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-500">
+  <footer class="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 py-4 mt-auto transition-colors duration-200">
+    <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-500 dark:text-slate-400">
       Smart Campus Placement Management System &bull; RDBMS + Java JDBC + SQLite WebAssembly Engine
     </div>
   </footer>
 
   <script>
+    // Theme Switcher Logic
+    function updateThemeIcons() {
+      const isDark = document.documentElement.classList.contains('dark');
+      const iconSpan = document.getElementById('themeToggleIcon');
+      const textSpan = document.getElementById('themeToggleText');
+      if (iconSpan && textSpan) {
+        if (isDark) {
+          iconSpan.innerHTML = '<i data-lucide="sun" class="w-3.5 h-3.5 text-amber-400"></i>';
+          textSpan.innerText = 'Light';
+        } else {
+          iconSpan.innerHTML = '<i data-lucide="moon" class="w-3.5 h-3.5 text-slate-600"></i>';
+          textSpan.innerText = 'Dark';
+        }
+        lucide.createIcons();
+      }
+      if (placementChart) {
+        renderAnalytics();
+      }
+    }
+
+    function toggleTheme() {
+      if (document.documentElement.classList.contains('dark')) {
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('color-theme', 'light');
+      } else {
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('color-theme', 'dark');
+      }
+      updateThemeIcons();
+    }
+
     // Embedded Schema DDL (01_schema.sql)
     const SCHEMA_SQL = `
       PRAGMA foreign_keys = ON;
@@ -700,7 +754,7 @@
     function updateDbStatus(text, color) {
       const badge = document.getElementById('dbStatusBadge');
       const label = document.getElementById('dbStatusText');
-      badge.className = `inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-${color}-50 text-${color}-700 border border-${color}-200`;
+      badge.className = `inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-${color}-50 dark:bg-${color}-950/60 text-${color}-700 dark:text-${color}-300 border border-${color}-200 dark:border-${color}-800/80`;
       badge.querySelector('span:first-child').className = `w-2 h-2 rounded-full bg-${color}-500 animate-pulse`;
       label.innerText = text;
     }
@@ -765,12 +819,12 @@
       const tMsg = document.getElementById('toastMessage');
 
       toast.className = `mb-6 p-4 rounded-xl border transition-all duration-300 flex items-start gap-3 shadow-sm ${
-        type === 'error' ? 'bg-red-50 border-red-200 text-red-900' : 'bg-emerald-50 border-emerald-200 text-emerald-900'
+        type === 'error' ? 'bg-red-50 dark:bg-red-950/50 border-red-200 dark:border-red-800 text-red-900 dark:text-red-200' : 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200'
       }`;
 
       icon.innerHTML = type === 'error'
-        ? '<svg class="w-5 h-5 text-red-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01"/></svg>'
-        : '<svg class="w-5 h-5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>';
+        ? '<svg class="w-5 h-5 text-red-600 dark:text-red-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01"/></svg>'
+        : '<svg class="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>';
 
       tTitle.innerText = title;
       tMsg.innerText = msg;
@@ -820,16 +874,17 @@
       const summaryRows = query("SELECT * FROM v_placement_summary ORDER BY placement_percentage DESC;");
       const tbody = document.getElementById('deptSummaryTable');
       tbody.innerHTML = summaryRows.map(r => `
-        <tr class="hover:bg-slate-50">
-          <td class="py-2.5 px-3 font-semibold text-slate-800">${r.department}</td>
-          <td class="py-2.5 px-3 text-slate-600">${r.total_students}</td>
-          <td class="py-2.5 px-3 text-emerald-600 font-bold">${r.placed_students}</td>
-          <td class="py-2.5 px-3 font-bold text-blue-600">${r.placement_percentage}%</td>
-          <td class="py-2.5 px-3 text-slate-600">${r.avg_placed_package_lpa ? r.avg_placed_package_lpa + ' LPA' : 'N/A'}</td>
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+          <td class="py-2.5 px-3 font-semibold text-slate-800 dark:text-slate-200">${r.department}</td>
+          <td class="py-2.5 px-3 text-slate-600 dark:text-slate-400">${r.total_students}</td>
+          <td class="py-2.5 px-3 text-emerald-600 dark:text-emerald-400 font-bold">${r.placed_students}</td>
+          <td class="py-2.5 px-3 font-bold text-blue-600 dark:text-blue-400">${r.placement_percentage}%</td>
+          <td class="py-2.5 px-3 text-slate-600 dark:text-slate-400">${r.avg_placed_package_lpa ? r.avg_placed_package_lpa + ' LPA' : 'N/A'}</td>
         </tr>
       `).join('');
 
-      // Chart.js render
+      // Chart.js render with dynamic Dark/Light theme colors
+      const isDark = document.documentElement.classList.contains('dark');
       const ctx = document.getElementById('placementChart').getContext('2d');
       if (placementChart) placementChart.destroy();
       placementChart = new Chart(ctx, {
@@ -839,15 +894,34 @@
           datasets: [{
             label: 'Placement %',
             data: summaryRows.map(r => r.placement_percentage),
-            backgroundColor: '#3B82F6',
+            backgroundColor: isDark ? '#60A5FA' : '#3B82F6',
             borderRadius: 8
           }]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              labels: {
+                color: isDark ? '#94A3B8' : '#475569'
+              }
+            }
+          },
           scales: {
-            y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } }
+            x: {
+              ticks: { color: isDark ? '#94A3B8' : '#64748B' },
+              grid: { color: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)' }
+            },
+            y: {
+              beginAtZero: true,
+              max: 100,
+              ticks: {
+                color: isDark ? '#94A3B8' : '#64748B',
+                callback: v => v + '%'
+              },
+              grid: { color: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)' }
+            }
           }
         }
       });
@@ -911,20 +985,20 @@
       let placementInfoHtml = '';
       if (student.placement_status === 'Placed' && placedOffers.length > 0) {
         placementInfoHtml = placedOffers.map(offer => `
-          <div class="mt-2.5 p-3 rounded-xl bg-emerald-50 border border-emerald-200">
-            <div class="flex items-center gap-1.5 text-emerald-900 font-bold text-xs">
+          <div class="mt-2.5 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800">
+            <div class="flex items-center gap-1.5 text-emerald-900 dark:text-emerald-300 font-bold text-xs">
               <span>🎉 Placed At:</span>
-              <span class="text-emerald-950 font-extrabold text-sm">${offer.company_name}</span>
+              <span class="text-emerald-950 dark:text-emerald-200 font-extrabold text-sm">${offer.company_name}</span>
             </div>
-            <div class="mt-1 text-emerald-800 text-[11px] font-mono space-y-0.5">
+            <div class="mt-1 text-emerald-800 dark:text-emerald-300 text-[11px] font-mono space-y-0.5">
               <p>Role: <strong>${offer.role_title}</strong></p>
-              <p>Package: <strong class="text-emerald-900 text-xs">${offer.package_lpa.toFixed(2)} LPA</strong> &bull; Location: ${offer.location}</p>
+              <p>Package: <strong class="text-emerald-950 dark:text-emerald-100 text-xs">${offer.package_lpa.toFixed(2)} LPA</strong> &bull; Location: ${offer.location}</p>
             </div>
           </div>
         `).join('');
       } else {
         placementInfoHtml = `
-          <div class="mt-2.5 p-2 rounded-lg bg-slate-100 text-slate-500 text-[11px]">
+          <div class="mt-2.5 p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[11px]">
             ⏳ <em>Currently unplaced &bull; Eligible for drives matching CGPA</em>
           </div>
         `;
@@ -932,8 +1006,8 @@
 
       document.getElementById('studentProfileCard').innerHTML = `
         <p><strong>Name:</strong> ${student.name}</p>
-        <p><strong>Department:</strong> ${student.department} | <strong>CGPA:</strong> <span class="font-bold text-blue-700">${student.cgpa.toFixed(2)}</span></p>
-        <p><strong>Placement Status:</strong> <span class="px-2 py-0.5 rounded font-bold ${student.placement_status === 'Placed' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">${student.placement_status}</span></p>
+        <p><strong>Department:</strong> ${student.department} | <strong>CGPA:</strong> <span class="font-bold text-blue-700 dark:text-blue-400">${student.cgpa.toFixed(2)}</span></p>
+        <p><strong>Placement Status:</strong> <span class="px-2 py-0.5 rounded font-bold ${student.placement_status === 'Placed' ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300' : 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300'}">${student.placement_status}</span></p>
         ${placementInfoHtml}
       `;
 
@@ -950,16 +1024,16 @@
         table.innerHTML = eligible.map(j => {
           const status = appMap[j.job_id];
           return `
-            <tr class="hover:bg-slate-50">
+            <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
               <td class="py-2.5 px-3">#${j.job_id}</td>
-              <td class="py-2.5 px-3 font-semibold text-slate-900">${j.company_name}</td>
-              <td class="py-2.5 px-3">${j.role_title}</td>
-              <td class="py-2.5 px-3 text-slate-600">${j.min_cgpa.toFixed(2)}</td>
-              <td class="py-2.5 px-3 font-bold text-slate-800">${j.package_lpa.toFixed(2)} LPA</td>
-              <td class="py-2.5 px-3 text-slate-500">${j.deadline}</td>
+              <td class="py-2.5 px-3 font-semibold text-slate-900 dark:text-white">${j.company_name}</td>
+              <td class="py-2.5 px-3 text-slate-700 dark:text-slate-300">${j.role_title}</td>
+              <td class="py-2.5 px-3 text-slate-600 dark:text-slate-400">${j.min_cgpa.toFixed(2)}</td>
+              <td class="py-2.5 px-3 font-bold text-slate-800 dark:text-slate-200">${j.package_lpa.toFixed(2)} LPA</td>
+              <td class="py-2.5 px-3 text-slate-500 dark:text-slate-400">${j.deadline}</td>
               <td class="py-2.5 px-3 text-right">
                 ${status
-                  ? `<span class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700">${status}</span>`
+                  ? `<span class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">${status}</span>`
                   : `<button onclick="applyForJob(${student.student_id}, ${j.job_id})" class="px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs transition">Apply (SQL)</button>`
                 }
               </td>
@@ -1017,14 +1091,14 @@
 
       const table = document.getElementById('allJobsTable');
       table.innerHTML = jobs.map(j => `
-        <tr class="hover:bg-slate-50">
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
           <td class="py-2.5 px-3">#${j.job_id}</td>
-          <td class="py-2.5 px-3 font-semibold text-slate-900">${j.company_name}</td>
-          <td class="py-2.5 px-3">${j.role_title}</td>
-          <td class="py-2.5 px-3 text-slate-600">${j.min_cgpa.toFixed(2)}</td>
-          <td class="py-2.5 px-3 font-bold text-slate-800">${j.package_lpa.toFixed(2)} LPA</td>
-          <td class="py-2.5 px-3 text-slate-500">${j.deadline}</td>
-          <td class="py-2.5 px-3 font-semibold text-blue-600">${j.total_applicants} applicants</td>
+          <td class="py-2.5 px-3 font-semibold text-slate-900 dark:text-white">${j.company_name}</td>
+          <td class="py-2.5 px-3 text-slate-700 dark:text-slate-300">${j.role_title}</td>
+          <td class="py-2.5 px-3 text-slate-600 dark:text-slate-400">${j.min_cgpa.toFixed(2)}</td>
+          <td class="py-2.5 px-3 font-bold text-slate-800 dark:text-slate-200">${j.package_lpa.toFixed(2)} LPA</td>
+          <td class="py-2.5 px-3 text-slate-500 dark:text-slate-400">${j.deadline}</td>
+          <td class="py-2.5 px-3 font-semibold text-blue-600 dark:text-blue-400">${j.total_applicants} applicants</td>
         </tr>
       `).join('');
 
@@ -1083,22 +1157,22 @@
 
       const table = document.getElementById('applicationsTable');
       table.innerHTML = apps.map(a => `
-        <tr class="hover:bg-slate-50">
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
           <td class="py-2.5 px-3">#${a.application_id}</td>
-          <td class="py-2.5 px-3 font-semibold text-slate-900">${a.student_name}</td>
-          <td class="py-2.5 px-3">${a.department}</td>
-          <td class="py-2.5 px-3 font-mono">${a.cgpa.toFixed(2)}</td>
-          <td class="py-2.5 px-3">${a.company_name} &bull; <span class="text-slate-500">${a.role_title}</span></td>
-          <td class="py-2.5 px-3 font-bold">${a.package_lpa.toFixed(2)} LPA</td>
+          <td class="py-2.5 px-3 font-semibold text-slate-900 dark:text-white">${a.student_name}</td>
+          <td class="py-2.5 px-3 text-slate-700 dark:text-slate-300">${a.department}</td>
+          <td class="py-2.5 px-3 font-mono text-slate-700 dark:text-slate-300">${a.cgpa.toFixed(2)}</td>
+          <td class="py-2.5 px-3 text-slate-700 dark:text-slate-300">${a.company_name} &bull; <span class="text-slate-500 dark:text-slate-400">${a.role_title}</span></td>
+          <td class="py-2.5 px-3 font-bold text-slate-900 dark:text-white">${a.package_lpa.toFixed(2)} LPA</td>
           <td class="py-2.5 px-3">
             <span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
-              a.status === 'Selected' ? 'bg-emerald-100 text-emerald-800' :
-              a.status === 'Rejected' ? 'bg-rose-100 text-rose-800' :
-              a.status === 'Shortlisted' ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-100 text-slate-700'
+              a.status === 'Selected' ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300' :
+              a.status === 'Rejected' ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300' :
+              a.status === 'Shortlisted' ? 'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-800 dark:text-indigo-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
             }">${a.status}</span>
           </td>
           <td class="py-2.5 px-3 text-right">
-            <select onchange="updateApplicationStatus(${a.application_id}, this.value)" class="p-1 text-xs border rounded bg-white">
+            <select onchange="updateApplicationStatus(${a.application_id}, this.value)" class="p-1 text-xs border border-slate-300 dark:border-slate-700 rounded bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200">
               <option value="">Update...</option>
               <option value="Shortlisted" ${a.status === 'Shortlisted' ? 'disabled' : ''}>Shortlisted</option>
               <option value="Selected" ${a.status === 'Selected' ? 'disabled' : ''}>Selected (Trigger 2)</option>
@@ -1189,8 +1263,8 @@
 
         thead.innerHTML = `<tr>${cols.map(c => `<th class="py-2.5 px-3 font-semibold">${c}</th>`).join('')}</tr>`;
         tbody.innerHTML = rows.map(r => `
-          <tr class="hover:bg-slate-50">
-            ${r.map(val => `<td class="py-2 px-3 text-slate-700">${val !== null ? val : '<span class="text-slate-400 italic">NULL</span>'}</td>`).join('')}
+          <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+            ${r.map(val => `<td class="py-2 px-3 text-slate-700 dark:text-slate-300">${val !== null ? val : '<span class="text-slate-400 italic">NULL</span>'}</td>`).join('')}
           </tr>
         `).join('');
 
@@ -1225,6 +1299,7 @@
     // Init on load
     window.onload = () => {
       lucide.createIcons();
+      updateThemeIcons();
       initDatabase(false);
     };
   </script>
