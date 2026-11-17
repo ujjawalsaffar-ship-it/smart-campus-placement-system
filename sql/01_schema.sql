@@ -86,15 +86,35 @@ BEGIN
     SELECT RAISE(ABORT, 'Ineligible: Student CGPA is lower than minimum CGPA required for this job posting.');
 END;
 
--- Trigger 2: Automatically update student placement status to 'Placed' when an application is 'Selected'
+-- Trigger 2: Automatically synchronize student placement status ('Placed' if has any 'Selected' application, otherwise 'Unplaced')
 CREATE TRIGGER trg_auto_update_placement_status
 AFTER UPDATE OF status ON applications
 FOR EACH ROW
-WHEN NEW.status = 'Selected'
 BEGIN
     UPDATE students
-    SET placement_status = 'Placed'
+    SET placement_status = CASE 
+        WHEN EXISTS (
+            SELECT 1 FROM applications 
+            WHERE student_id = NEW.student_id AND status = 'Selected'
+        ) THEN 'Placed'
+        ELSE 'Unplaced'
+    END
     WHERE student_id = NEW.student_id;
+END;
+
+CREATE TRIGGER trg_auto_update_placement_status_delete
+AFTER DELETE ON applications
+FOR EACH ROW
+BEGIN
+    UPDATE students
+    SET placement_status = CASE 
+        WHEN EXISTS (
+            SELECT 1 FROM applications 
+            WHERE student_id = OLD.student_id AND status = 'Selected'
+        ) THEN 'Placed'
+        ELSE 'Unplaced'
+    END
+    WHERE student_id = OLD.student_id;
 END;
 
 -- ----------------------------------------------------------------

@@ -415,9 +415,9 @@
               <p class="mt-1 text-slate-600">Checks student's CGPA &ge; job's min_cgpa. If not, fires <code class="font-bold">RAISE(ABORT)</code> to reject application.</p>
             </div>
             <div class="border-l-4 border-emerald-500 pl-3">
-              <p class="font-bold text-slate-900">Trigger 2: Auto Status Synchronization</p>
-              <p class="text-slate-500 text-[11px] font-mono mt-0.5">AFTER UPDATE OF status ON applications</p>
-              <p class="mt-1 text-slate-600">When status changes to 'Selected', automatically updates <code class="font-bold">students.placement_status = 'Placed'</code>.</p>
+              <p class="font-bold text-slate-900">Trigger 2: Bidirectional Placement Synchronization</p>
+              <p class="text-slate-500 text-[11px] font-mono mt-0.5">AFTER UPDATE OF status / AFTER DELETE ON applications</p>
+              <p class="mt-1 text-slate-600">Automatically sets <code class="font-bold text-emerald-700">students.placement_status = 'Placed'</code> when an offer is 'Selected'. If that offer is later rejected or deleted, automatically reverts the student's status back to <code class="font-bold text-amber-700">'Unplaced'</code> (unless they hold another active 'Selected' offer).</p>
             </div>
           </div>
         </div>
@@ -490,11 +490,31 @@
       CREATE TRIGGER trg_auto_update_placement_status
       AFTER UPDATE OF status ON applications
       FOR EACH ROW
-      WHEN NEW.status = 'Selected'
       BEGIN
           UPDATE students
-          SET placement_status = 'Placed'
+          SET placement_status = CASE 
+              WHEN EXISTS (
+                  SELECT 1 FROM applications 
+                  WHERE student_id = NEW.student_id AND status = 'Selected'
+              ) THEN 'Placed'
+              ELSE 'Unplaced'
+          END
           WHERE student_id = NEW.student_id;
+      END;
+
+      CREATE TRIGGER trg_auto_update_placement_status_delete
+      AFTER DELETE ON applications
+      FOR EACH ROW
+      BEGIN
+          UPDATE students
+          SET placement_status = CASE 
+              WHEN EXISTS (
+                  SELECT 1 FROM applications 
+                  WHERE student_id = OLD.student_id AND status = 'Selected'
+              ) THEN 'Placed'
+              ELSE 'Unplaced'
+          END
+          WHERE student_id = OLD.student_id;
       END;
 
       CREATE VIEW v_placement_summary AS
@@ -598,7 +618,58 @@
         if (savedDb) {
           const uInt8Array = new Uint8Array(JSON.parse(savedDb));
           db = new SQL.Database(uInt8Array);
-          updateDbStatus('Connected (Restored)', 'emerald');
+          // Auto-upgrade to bidirectional sync triggers
+          try {
+            db.run("DROP TRIGGER IF EXISTS trg_auto_update_placement_status;");
+            db.run("DROP TRIGGER IF EXISTS trg_auto_update_placement_status_delete;");
+            db.run(`
+              CREATE TRIGGER trg_auto_update_placement_status
+              AFTER UPDATE OF status ON applications
+              FOR EACH ROW
+              BEGIN
+                  UPDATE students
+                  SET placement_status = CASE 
+                      WHEN EXISTS (
+                          SELECT 1 FROM applications 
+                          WHERE student_id = NEW.student_id AND status = 'Selected'
+                      ) THEN 'Placed'
+                      ELSE 'Unplaced'
+                  END
+                  WHERE student_id = NEW.student_id;
+              END;
+            `);
+            db.run(`
+              CREATE TRIGGER trg_auto_update_placement_status_delete
+              AFTER DELETE ON applications
+              FOR EACH ROW
+              BEGIN
+                  UPDATE students
+                  SET placement_status = CASE 
+                      WHEN EXISTS (
+                          SELECT 1 FROM applications 
+                          WHERE student_id = OLD.student_id AND status = 'Selected'
+                      ) THEN 'Placed'
+                      ELSE 'Unplaced'
+                  END
+                  WHERE student_id = OLD.student_id;
+              END;
+            `);
+            // Synchronize existing student statuses with current application records
+            db.run(`
+              UPDATE students
+              SET placement_status = CASE 
+                  WHEN EXISTS (
+                      SELECT 1 FROM applications 
+                      WHERE student_id = students.student_id AND status = 'Selected'
+                  ) THEN 'Placed'
+                  ELSE 'Unplaced'
+              END;
+            `);
+            saveDatabase();
+          } catch (migErr) {
+            console.warn("Migration notice:", migErr);
+          }
+          updateDbStatus('Connected (SQLite WASM)', 'emerald');
         } else {
           db = new SQL.Database();
           db.run(SCHEMA_SQL);
@@ -787,12 +858,31 @@
     // -------------------------------------------------------------
     function renderStudentsTab() {
       if (!db) return;
-      const students = query("SELECT * FROM students ORDER BY student_id ASC;");
+      const students = query(`
+        SELECT 
+          s.student_id, 
+          s.name, 
+          s.department, 
+          s.cgpa, 
+          s.placement_status,
+          (
+            SELECT c.company_name || ' (' || jp.package_lpa || ' LPA)'
+            FROM applications a
+            JOIN job_postings jp ON a.job_id = jp.job_id
+            JOIN companies c ON jp.company_id = c.company_id
+            WHERE a.student_id = s.student_id AND a.status = 'Selected'
+            LIMIT 1
+          ) AS placed_offer
+        FROM students s 
+        ORDER BY s.student_id ASC;
+      `);
       const select = document.getElementById('studentSelect');
       const currentVal = select.value;
 
       select.innerHTML = students.map(s => `
-        <option value="${s.student_id}">[ID: ${s.student_id}] ${s.name} (${s.department} | CGPA: ${s.cgpa.toFixed(2)} | Status: ${s.placement_status})</option>
+        <option value="${s.student_id}">
+          [ID: ${s.student_id}] ${s.name} (${s.department} | CGPA: ${s.cgpa.toFixed(2)}) &bull; ${s.placement_status === 'Placed' ? '🎯 Placed @ ' + (s.placed_offer || 'Company') : '⏳ Unplaced'}
+        </option>
       `).join('');
 
       if (currentVal && students.some(s => s.student_id == currentVal)) {
@@ -809,10 +899,42 @@
       const student = query("SELECT * FROM students WHERE student_id = ?;", [studentId])[0];
       if (!student) return;
 
+      // Query placed company details if Placed
+      const placedOffers = query(`
+        SELECT c.company_name, c.location, jp.role_title, jp.package_lpa, a.application_date
+        FROM applications a
+        JOIN job_postings jp ON a.job_id = jp.job_id
+        JOIN companies c ON jp.company_id = c.company_id
+        WHERE a.student_id = ? AND a.status = 'Selected';
+      `, [studentId]);
+
+      let placementInfoHtml = '';
+      if (student.placement_status === 'Placed' && placedOffers.length > 0) {
+        placementInfoHtml = placedOffers.map(offer => `
+          <div class="mt-2.5 p-3 rounded-xl bg-emerald-50 border border-emerald-200">
+            <div class="flex items-center gap-1.5 text-emerald-900 font-bold text-xs">
+              <span>🎉 Placed At:</span>
+              <span class="text-emerald-950 font-extrabold text-sm">${offer.company_name}</span>
+            </div>
+            <div class="mt-1 text-emerald-800 text-[11px] font-mono space-y-0.5">
+              <p>Role: <strong>${offer.role_title}</strong></p>
+              <p>Package: <strong class="text-emerald-900 text-xs">${offer.package_lpa.toFixed(2)} LPA</strong> &bull; Location: ${offer.location}</p>
+            </div>
+          </div>
+        `).join('');
+      } else {
+        placementInfoHtml = `
+          <div class="mt-2.5 p-2 rounded-lg bg-slate-100 text-slate-500 text-[11px]">
+            ⏳ <em>Currently unplaced &bull; Eligible for drives matching CGPA</em>
+          </div>
+        `;
+      }
+
       document.getElementById('studentProfileCard').innerHTML = `
         <p><strong>Name:</strong> ${student.name}</p>
         <p><strong>Department:</strong> ${student.department} | <strong>CGPA:</strong> <span class="font-bold text-blue-700">${student.cgpa.toFixed(2)}</span></p>
         <p><strong>Placement Status:</strong> <span class="px-2 py-0.5 rounded font-bold ${student.placement_status === 'Placed' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">${student.placement_status}</span></p>
+        ${placementInfoHtml}
       `;
 
       // Query from View: v_student_eligible_jobs
@@ -990,16 +1112,32 @@
     function updateApplicationStatus(appId, newStatus) {
       if (!newStatus) return;
       try {
-        // This UPDATE will fire trg_auto_update_placement_status if newStatus == 'Selected'
+        const appInfo = query(`
+          SELECT a.student_id, s.name AS student_name, c.company_name, jp.role_title, a.status AS old_status
+          FROM applications a
+          JOIN students s ON a.student_id = s.student_id
+          JOIN job_postings jp ON a.job_id = jp.job_id
+          JOIN companies c ON jp.company_id = c.company_id
+          WHERE a.application_id = ?;
+        `, [appId])[0];
+
+        // This UPDATE fires trg_auto_update_placement_status
         execute("UPDATE applications SET status = ? WHERE application_id = ?;", [newStatus, appId]);
+
+        const updatedStudent = query("SELECT placement_status FROM students WHERE student_id = ?;", [appInfo.student_id])[0];
 
         if (newStatus === 'Selected') {
           showToast(
             '✓ [DATABASE TRIGGER 2 FIRED]',
-            `Executed UPDATE on applications. Trigger automatically updated students.placement_status = 'Placed' in database!`
+            `Application #${appId} set to 'Selected' at ${appInfo.company_name}! Trigger automatically updated ${appInfo.student_name}'s status to 'Placed'.`
+          );
+        } else if (appInfo.old_status === 'Selected' && updatedStudent.placement_status === 'Unplaced') {
+          showToast(
+            '✓ [DATABASE TRIGGER 2 SYNCHRONIZED]',
+            `Selection revoked for ${appInfo.company_name}. Since ${appInfo.student_name} has no other 'Selected' offers, their status automatically reverted to 'Unplaced'!`
           );
         } else {
-          showToast('✓ Status Updated', `Application #${appId} updated to ${newStatus}`);
+          showToast('✓ Status Updated', `Application #${appId} for ${appInfo.student_name} updated to '${newStatus}'`);
         }
 
         renderApplicationsTab();
